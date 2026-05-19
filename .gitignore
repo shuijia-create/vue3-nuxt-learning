@@ -5,6 +5,8 @@ node_modules
 .env
 .env.*
 dist
+nuxt-dev.log
+nuxt-dev.err.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
