@@ -1,0 +1,19 @@
+{
+  "name": "nuxt-vite-study",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "generate": "nuxt generate"
+  },
+  "dependencies": {
+    "nuxt": "latest"
+  },
+  "devDependencies": {
+    "@element-plus/nuxt": "^1.1.5",
+    "element-plus": "^2.14.0",
+    "typescript": "latest"
+  }
+}
