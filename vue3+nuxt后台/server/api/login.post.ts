@@ -1,16 +1,9 @@
+import { authCookieName, demoToken, demoUser } from '~/server/data/auth'
+
 type LoginBody = {
   username?: string
   password?: string
 }
-
-const demoUser = {
-  id: 1,
-  username: 'admin',
-  nickname: '管理员',
-  roles: ['admin']
-}
-
-const demoToken = 'mock-admin-token'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<LoginBody>(event)
@@ -22,7 +15,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  setCookie(event, 'nuxt-admin-token', demoToken, {
+  setCookie(event, authCookieName, demoToken, {
     path: '/',
     sameSite: 'lax',
     maxAge: 60 * 60 * 24

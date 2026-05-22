@@ -1,5 +1,7 @@
+import { authCookieName } from '~/server/data/auth'
+
 export default defineEventHandler((event) => {
-  deleteCookie(event, 'nuxt-admin-token', {
+  deleteCookie(event, authCookieName, {
     path: '/'
   })
 
