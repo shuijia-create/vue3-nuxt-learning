@@ -1,3 +1,4 @@
+import { setAuthToken } from '../../utils/auth'
 import { findUserByEmail, toPublicUser } from '../../utils/users'
 
 export default defineEventHandler(async (event) => {
@@ -19,14 +20,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // httpOnly cookie 只能被服务端读取，浏览器 JS 不能直接读取，安全性比 localStorage 更好。
-  // 学习项目用用户 id 当作会话值；真实项目应使用随机 session id 或 JWT，并做好过期与签名校验。
-  setCookie(event, 'study_session', user.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24
-  })
+  // 登录成功后，把 token 写入 httpOnly cookie。
+  // 浏览器会保存并自动携带，前端 JS 不能直接读取。
+  setAuthToken(event, user.id)
 
   return {
     user: toPublicUser(user)

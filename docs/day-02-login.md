@@ -118,7 +118,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  setCookie(event, 'study_session', user.id, {
+  setCookie(event, 'study_token', `demo-token:${user.id}`, {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
@@ -147,7 +147,8 @@ Nuxt API 里常用这些函数：
 import { findUserById, toPublicUser } from '../../utils/users'
 
 export default defineEventHandler((event) => {
-  const userId = getCookie(event, 'study_session')
+  const token = getCookie(event, 'study_token')
+  const userId = token?.replace('demo-token:', '')
 
   if (!userId) {
     return {

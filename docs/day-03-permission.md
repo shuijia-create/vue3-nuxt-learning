@@ -143,7 +143,8 @@ POST /api/admin/users/delete
 服务端接口里通常会这样做：
 
 ```ts
-const userId = getCookie(event, 'study_session')
+const token = getCookie(event, 'study_token')
+const userId = token?.replace('demo-token:', '')
 const user = userId ? findUserById(userId) : null
 
 if (user?.role !== 'admin') {

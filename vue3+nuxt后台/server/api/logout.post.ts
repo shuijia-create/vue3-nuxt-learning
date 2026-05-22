@@ -1,7 +1,7 @@
-import { clearAuthToken } from '../../utils/auth'
-
 export default defineEventHandler((event) => {
-  clearAuthToken(event)
+  deleteCookie(event, 'nuxt-admin-token', {
+    path: '/'
+  })
 
   return {
     ok: true

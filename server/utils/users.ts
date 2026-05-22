@@ -16,7 +16,7 @@ export interface PublicUser {
 }
 
 // 学习项目先用内存数组模拟数据库。
-// 真实项目中，这里通常会改成 Prisma、Drizzle、MySQL、PostgreSQL 或其他数据源。
+// 真实项目通常会换成 Prisma、Drizzle、MySQL 或 PostgreSQL。
 export const demoUsers: DemoUser[] = [
   {
     id: 'u_1001',

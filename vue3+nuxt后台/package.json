@@ -1,0 +1,22 @@
+{
+  "name": "nuxt-admin-learning",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@pinia/nuxt": "^0.11.2",
+    "element-plus": "^2.11.8",
+    "nuxt": "^4.2.1",
+    "pinia": "^3.0.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.1.5"
+  }
+}
