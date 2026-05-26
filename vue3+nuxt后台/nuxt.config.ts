@@ -3,6 +3,11 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@pinia/nuxt'],
   css: ['~/assets/css/main.css', 'element-plus/dist/index.css'],
+  runtimeConfig: {
+    aiApiKey: '',
+    aiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    aiModel: 'qwen-plus'
+  },
   typescript: {
     strict: true,
     typeCheck: true

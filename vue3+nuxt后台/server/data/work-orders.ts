@@ -9,7 +9,8 @@ export const workOrders: WorkOrder[] = [
     status: '待处理',
     submitter: '张工',
     createdAt: '2026-05-21 09:12',
-    description: '现场已暂停投料，设备有报警但暂不清楚报警代码。'
+    description: '现场已暂停投料，设备有报警但暂不清楚报警代码。',
+    source: '手动创建'
   },
   {
     id: '2',
@@ -19,7 +20,8 @@ export const workOrders: WorkOrder[] = [
     status: '处理中',
     submitter: '李明',
     createdAt: '2026-05-21 10:05',
-    description: '质检区电脑无法访问内部系统，影响检验记录录入。'
+    description: '质检区电脑无法访问内部系统，影响检验记录录入。',
+    source: '手动创建'
   },
   {
     id: '3',
@@ -29,6 +31,7 @@ export const workOrders: WorkOrder[] = [
     status: '待确认',
     submitter: '王芳',
     createdAt: '2026-05-21 11:20',
-    description: '外箱标签批次号与系统记录不一致，需要质量人员确认。'
+    description: '外箱标签批次号与系统记录不一致，需要质量人员确认。',
+    source: '手动创建'
   }
 ]

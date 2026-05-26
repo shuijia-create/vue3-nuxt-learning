@@ -47,7 +47,7 @@ async function handleGenerateDraft() {
 
   try {
     // 学习重点：真实 AI API 密钥不能放在浏览器端，应该由 server/api 统一调用。
-    const res = await $fetch<{ draft: WorkOrderDraft }>('/api/ai/work-order-draft', {
+    const res = await $fetch<{ draft: WorkOrderDraft, provider: 'qwen' | 'mock' }>('/api/ai/work-order-draft', {
       method: 'POST',
       body: {
         description: text
@@ -55,19 +55,16 @@ async function handleGenerateDraft() {
     })
 
     draft.value = res.draft
-    ElMessage.success('工单草稿已生成')
+    ElMessage.success(res.provider === 'qwen' ? '千问工单草稿已生成' : '本地 mock 草稿已生成')
+  } catch (error: any) {
+    ElMessage.error(error?.statusMessage || error?.message || '工单草稿生成失败')
   } finally {
     pending.value = false
   }
 }
 
 function buildWorkOrderDescription() {
-  return [
-    `原始描述：${description.value.trim()}`,
-    `影响范围：${draft.value.impact}`,
-    `处理建议：${draft.value.suggestion}`,
-    `建议补充信息：${draft.value.missingInfo.join('、')}`
-  ].join('\n')
+  return description.value.trim()
 }
 
 async function handleSaveAsWorkOrder() {
@@ -85,7 +82,13 @@ async function handleSaveAsWorkOrder() {
         title: draft.value.title,
         type: draft.value.type,
         submitter: submitter.value.trim(),
-        description: buildWorkOrderDescription()
+        description: buildWorkOrderDescription(),
+        source: 'AI 草稿',
+        aiSuggestion: {
+          impact: draft.value.impact,
+          suggestion: draft.value.suggestion,
+          missingInfo: draft.value.missingInfo
+        }
       }
     })
 
@@ -96,6 +99,8 @@ async function handleSaveAsWorkOrder() {
 
     ElMessage.success('已保存为正式工单')
     await navigateTo('/work-orders')
+  } catch (error: any) {
+    ElMessage.error(error?.statusMessage || error?.message || '工单保存失败')
   } finally {
     saving.value = false
   }
@@ -130,7 +135,7 @@ async function handleSaveAsWorkOrder() {
             生成工单草稿
           </el-button>
           <p class="learning-note">
-            当前先调用 Nuxt 后端 mock AI 接口，后面可以把接口内部替换成真实 AI。
+            已接入后端 AI 调用入口：配置 API Key 后调用真实 AI，未配置时使用本地 mock。
           </p>
         </el-card>
       </el-col>

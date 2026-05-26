@@ -9,11 +9,14 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.65",
     "@element-plus/icons-vue": "^2.3.1",
     "@pinia/nuxt": "^0.11.2",
+    "ai": "^6.0.190",
     "element-plus": "^2.11.8",
     "nuxt": "^4.2.1",
-    "pinia": "^3.0.4"
+    "pinia": "^3.0.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

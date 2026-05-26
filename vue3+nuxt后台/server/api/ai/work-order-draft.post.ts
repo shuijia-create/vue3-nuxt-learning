@@ -1,51 +1,89 @@
-import type { WorkOrderDraft, WorkOrderPriority, WorkOrderType } from '~/types/work-order'
+import { createOpenAI } from '@ai-sdk/openai'
+import { generateText } from 'ai'
+import { z } from 'zod'
+import type { WorkOrderDraft } from '~/types/work-order'
 
 type GenerateDraftBody = {
   description?: string
 }
 
-function inferWorkOrderType(description: string): WorkOrderType {
-  if (description.includes('电脑') || description.includes('内网') || description.includes('系统')) {
-    return 'IT 问题'
+type AiProvider = 'qwen' | 'mock'
+
+const workOrderDraftSchema = z.object({
+  title: z.string().min(1),
+  type: z.enum(['设备故障', 'IT 问题', '质量异常']),
+  priority: z.enum(['低', '中', '高']),
+  impact: z.string().min(1),
+  suggestion: z.string().min(1),
+  missingInfo: z.array(z.string().min(1))
+})
+
+function parseDraftText(text: string): WorkOrderDraft {
+  const jsonText = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '')
+  const jsonStart = jsonText.indexOf('{')
+  const jsonEnd = jsonText.lastIndexOf('}')
+
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    throw new Error('AI 没有返回 JSON 对象')
   }
 
-  if (description.includes('标签') || description.includes('批次') || description.includes('质量')) {
-    return '质量异常'
-  }
+  const parsed = JSON.parse(jsonText.slice(jsonStart, jsonEnd + 1))
 
-  return '设备故障'
+  return workOrderDraftSchema.parse(parsed)
 }
 
-function inferPriority(description: string): WorkOrderPriority {
-  if (description.includes('停机') || description.includes('报警') || description.includes('暂停')) {
-    return '高'
+function createMockDraft(description: string): WorkOrderDraft {
+  return {
+    title: description.slice(0, 24),
+    type: '设备故障',
+    priority: '高',
+    impact: '现场可能影响生产节拍，需要优先确认风险和临时处置情况。',
+    suggestion: '建议先确认设备编号、报警代码、当前参数和现场临时处理记录，再分派给设备人员处理。',
+    missingInfo: [
+      '设备编号',
+      '发生时间',
+      '现场照片或报警截图',
+      '已采取的临时处理措施'
+    ]
   }
-
-  if (description.includes('影响') || description.includes('异常')) {
-    return '中'
-  }
-
-  return '低'
 }
 
-function buildTitle(description: string, type: WorkOrderType) {
-  const cleanDescription = description.replace(/\s+/g, '')
+async function generateDraftWithQwen(description: string, apiKey: string, baseURL: string, model: string): Promise<WorkOrderDraft> {
+  const qwen = createOpenAI({
+    apiKey,
+    baseURL,
+    name: 'qwen'
+  })
 
-  if (cleanDescription.length <= 18) {
-    return cleanDescription
+  try {
+    const { text } = await generateText({
+      model: qwen(model),
+      system: [
+        '你是制造企业内部工单助手。',
+        '你必须只返回一个 JSON 对象，不要返回 Markdown，不要返回解释文字，不要返回“以下是”。',
+        'JSON 字段只能包含 title、type、priority、impact、suggestion、missingInfo。',
+        'type 只能是“设备故障”、“IT 问题”、“质量异常”之一。',
+        'priority 只能是“低”、“中”、“高”之一。'
+      ].join('\n'),
+      prompt: [
+        '请根据员工提交的问题描述生成工单草稿。',
+        '',
+        `员工描述：${description}`,
+        '',
+        '返回格式示例：',
+        '{"title":"2号线设备温度偏高","type":"设备故障","priority":"高","impact":"可能影响当前生产节拍","suggestion":"建议检查设备报警代码、温控传感器和冷却系统","missingInfo":["设备编号","报警代码","当前温度数值"]}'
+      ].join('\n')
+    })
+
+    return parseDraftText(text)
+  } catch (error) {
+    console.error('[AI_WORK_ORDER_DRAFT_ERROR]', error)
+
+    throw createError({
+      statusCode: 502,
+      statusMessage: '千问接口调用失败，请检查 API Key、模型名称和网络连接'
+    })
   }
-
-  return `${type}：${cleanDescription.slice(0, 18)}`
-}
-
-function buildSuggestion(type: WorkOrderType) {
-  const suggestionMap: Record<WorkOrderType, string> = {
-    设备故障: '建议先确认设备编号、报警代码、当前温度或运行参数，并联系设备工程师排查传感器、冷却系统和运行日志。',
-    'IT 问题': '建议先确认电脑编号、网络连接状态、影响系统范围，并联系 IT 人员检查账号、网络和内部系统访问权限。',
-    质量异常: '建议先隔离相关批次，记录标签、批号和系统数据差异，并通知质量人员复核后再决定后续处置。'
-  }
-
-  return suggestionMap[type]
 }
 
 export default defineEventHandler(async (event) => {
@@ -59,26 +97,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const type = inferWorkOrderType(description)
-  const priority = inferPriority(description)
-
-  const draft: WorkOrderDraft = {
-    title: buildTitle(description, type),
-    type,
-    priority,
-    impact: priority === '高'
-      ? '现场可能已经影响生产节拍，需要优先确认风险和临时处置情况。'
-      : '当前影响范围需要进一步确认，建议补充现场记录后再分派处理。',
-    suggestion: buildSuggestion(type),
-    missingInfo: [
-      '设备或系统编号',
-      '发生时间',
-      '现场照片或报警截图',
-      '已采取的临时处理措施'
-    ]
-  }
+  const config = useRuntimeConfig()
+  const apiKey = String(config.aiApiKey || '')
+  const baseURL = String(config.aiBaseUrl || 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+  const model = String(config.aiModel || 'qwen-plus')
+  const draft = apiKey
+    ? await generateDraftWithQwen(description, apiKey, baseURL, model)
+    : createMockDraft(description)
+  const provider: AiProvider = apiKey ? 'qwen' : 'mock'
 
   return {
-    draft
+    draft,
+    provider
   }
 })

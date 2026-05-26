@@ -3,6 +3,7 @@ import {
   ChatDotRound,
   DataAnalysis,
   Document,
+  Setting,
   Tickets
 } from '@element-plus/icons-vue'
 
@@ -30,6 +31,11 @@ const menus = [
     path: '/ai/knowledge',
     title: '企业文档问答',
     icon: ChatDotRound
+  },
+  {
+    path: '/system',
+    title: '系统日志',
+    icon: Setting
   }
 ]
 </script>

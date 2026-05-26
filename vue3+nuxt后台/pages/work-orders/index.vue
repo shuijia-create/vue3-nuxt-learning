@@ -105,6 +105,12 @@ const columns: BaseTableColumn[] = [
     width: 110
   },
   {
+    label: '来源',
+    prop: 'source',
+    width: 110,
+    slot: 'source'
+  },
+  {
     label: '创建时间',
     prop: 'createdAt',
     width: 180
@@ -260,6 +266,15 @@ async function handleCreateSubmit() {
       >
         <template #status="{ value }">
           <el-tag :type="getStatusTagType(value)" effect="light">
+            {{ value }}
+          </el-tag>
+        </template>
+
+        <template #source="{ value }">
+          <el-tag
+            :type="value === 'AI 草稿' ? 'success' : 'info'"
+            effect="light"
+          >
             {{ value }}
           </el-tag>
         </template>

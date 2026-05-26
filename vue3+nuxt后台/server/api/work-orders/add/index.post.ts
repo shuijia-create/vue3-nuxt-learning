@@ -1,11 +1,14 @@
 import { workOrders } from '~/server/data/work-orders'
-import type { WorkOrder, WorkOrderType } from '~/types/work-order'
+import { addOperationLog } from '~/server/data/operation-logs'
+import type { WorkOrder, WorkOrderAiSuggestion, WorkOrderSource, WorkOrderType } from '~/types/work-order'
 
 type CreateWorkOrderBody = {
   title?: string
   type?: WorkOrderType
   submitter?: string
   description?: string
+  source?: WorkOrderSource
+  aiSuggestion?: WorkOrderAiSuggestion
 }
 
 function createWorkOrderCode() {
@@ -38,10 +41,30 @@ export default defineEventHandler(async (event) => {
     status: '待处理',
     submitter: body.submitter,
     createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
-    description: body.description
+    description: body.description,
+    source: body.source === 'AI 草稿' ? 'AI 草稿' : '手动创建',
+    aiSuggestion: body.source === 'AI 草稿' ? body.aiSuggestion : undefined,
+    processRecords: [
+      {
+        id: String(Date.now()),
+        action: '创建工单',
+        operator: body.submitter,
+        createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+        remark: body.source === 'AI 草稿'
+          ? '提交人根据 AI 草稿创建了工单，当前状态为待处理。'
+          : '提交人创建了工单，当前状态为待处理。'
+      }
+    ]
   }
 
   workOrders.unshift(newWorkOrder)
+  addOperationLog({
+    module: '工单',
+    action: '创建工单',
+    operator: body.submitter,
+    target: newWorkOrder.code,
+    detail: `通过“${newWorkOrder.source}”创建工单“${newWorkOrder.title}”。`
+  })
 
   return {
     message: '工单创建成功',
