@@ -1,5 +1,6 @@
 import { workOrders } from '~/server/data/work-orders'
-import { addOperationLog } from '~/server/data/operation-logs'
+import { createOperationLog } from '~/server/services/operation-logs'
+import { createWorkOrderCreatedNotification } from '~/server/services/notifications'
 import type { WorkOrder, WorkOrderAiSuggestion, WorkOrderSource, WorkOrderType } from '~/types/work-order'
 
 type CreateWorkOrderBody = {
@@ -23,8 +24,13 @@ function createWorkOrderCode() {
   return `WO-${date}-${sequence}`
 }
 
+type CurrentUser = {
+  id?: number
+}
+
 export default defineEventHandler(async (event) => {
   const body = await readBody<CreateWorkOrderBody>(event)
+  const currentUser = event.context.currentUser as CurrentUser | undefined
 
   if (!body.title || !body.type || !body.submitter || !body.description) {
     throw createError({
@@ -58,12 +64,16 @@ export default defineEventHandler(async (event) => {
   }
 
   workOrders.unshift(newWorkOrder)
-  addOperationLog({
+  createOperationLog({
     module: '工单',
     action: '创建工单',
     operator: body.submitter,
     target: newWorkOrder.code,
     detail: `通过“${newWorkOrder.source}”创建工单“${newWorkOrder.title}”。`
+  })
+  createWorkOrderCreatedNotification({
+    recipientUserId: currentUser?.id ?? 1,
+    workOrder: newWorkOrder
   })
 
   return {

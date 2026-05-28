@@ -1,10 +1,17 @@
 import { workOrders } from '~/server/data/work-orders'
-import { addOperationLog } from '~/server/data/operation-logs'
+import { createOperationLog } from '~/server/services/operation-logs'
+import { createWorkOrderStatusChangedNotification } from '~/server/services/notifications'
 import type { WorkOrderStatus } from '~/types/work-order'
 
 type ChangeStatusBody = {
   id?: string
   status?: WorkOrderStatus
+}
+
+type CurrentUser = {
+  id?: number
+  nickname?: string
+  username?: string
 }
 
 const workOrderStatuses: WorkOrderStatus[] = ['待处理', '处理中', '待确认']
@@ -16,7 +23,7 @@ function isWorkOrderStatus(value: unknown): value is WorkOrderStatus {
 export default defineEventHandler(async (event) => {
   const body = await readBody<ChangeStatusBody>(event)
   const { id, status } = body
-  const currentUser = event.context.currentUser as { nickname?: string, username?: string } | undefined
+  const currentUser = event.context.currentUser as CurrentUser | undefined
 
   if (!id || !isWorkOrderStatus(status)) {
     return {
@@ -64,12 +71,18 @@ export default defineEventHandler(async (event) => {
     createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     remark: `工单状态由“${oldStatus}”变更为“${status}”。`
   })
-  addOperationLog({
+  createOperationLog({
     module: '工单',
     action: '状态流转',
     operator,
     target: order.code,
     detail: `工单“${order.title}”状态由“${oldStatus}”变更为“${status}”。`
+  })
+  createWorkOrderStatusChangedNotification({
+    recipientUserId: currentUser?.id ?? 1,
+    workOrder: order,
+    oldStatus,
+    newStatus: status
   })
 
   return {

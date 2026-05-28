@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WorkOrder, WorkOrderStatus } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
+import { useNotificationsStore } from '~/stores/notifications'
 
 definePageMeta({
   layout: 'admin'
@@ -17,6 +18,7 @@ type WorkOrderDetailResponse = {
 const workOrder = ref<WorkOrder>()
 const pending = ref(false)
 const error = ref(false)
+const notificationsStore = useNotificationsStore()
 const processRecords = computed(() => workOrder.value?.processRecords ?? [])
 const hasAiSuggestion = computed(() => {
   return workOrder.value?.source === 'AI 草稿' && !!workOrder.value.aiSuggestion
@@ -92,6 +94,7 @@ async function handleChangeStatus(status: WorkOrderStatus) {
     }
 
     ElMessage.success('工单状态已更新')
+    await notificationsStore.fetchNotifications().catch(() => undefined)
     await fetchWorkOrderDetail()
   } catch {
     ElMessage.error('状态更新失败，请确认后端接口已实现')

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WorkOrderDraft, WorkOrderPriority } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
+import { useNotificationsStore } from '~/stores/notifications'
 
 definePageMeta({
   layout: 'admin'
@@ -14,6 +15,7 @@ const description = ref('2 号线混料设备温度偏高，现场已暂停投�
 const submitter = ref('现场员工')
 const pending = ref(false)
 const saving = ref(false)
+const notificationsStore = useNotificationsStore()
 
 const draft = ref<WorkOrderDraft>({
   title: '2 号线混料设备温度偏高报警',
@@ -98,6 +100,7 @@ async function handleSaveAsWorkOrder() {
     }
 
     ElMessage.success('已保存为正式工单')
+    await notificationsStore.fetchNotifications().catch(() => undefined)
     await navigateTo('/work-orders')
   } catch (error: any) {
     ElMessage.error(error?.statusMessage || error?.message || '工单保存失败')

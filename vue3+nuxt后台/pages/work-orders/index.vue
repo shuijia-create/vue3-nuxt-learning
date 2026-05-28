@@ -2,6 +2,7 @@
 import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { WorkOrder, WorkOrderStatus, WorkOrderType } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
+import { useNotificationsStore } from '~/stores/notifications'
 
 definePageMeta({
   layout: 'admin'
@@ -27,6 +28,7 @@ const filterForm = reactive<WorkOrderFilterForm>({
   type: '',
   status: ''
 })
+const notificationsStore = useNotificationsStore()
 
 const requestQuery = ref({
   type: undefined as WorkOrderType | undefined,
@@ -184,6 +186,7 @@ async function handleCreateSubmit() {
 
   ElMessage.success('工单创建成功')
   closeCreateDialog()
+  await notificationsStore.fetchNotifications().catch(() => undefined)
   await refresh()
 }
 </script>

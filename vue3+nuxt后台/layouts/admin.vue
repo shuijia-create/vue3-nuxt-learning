@@ -1,10 +1,62 @@
 <script setup lang="ts">
-import { SwitchButton } from '@element-plus/icons-vue'
+import { Bell, Refresh, SwitchButton } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { useNotificationsStore } from '../stores/notifications'
+import type { Notification as SystemNotification } from '~/types/notification'
 
 const auth = useAuthStore()
+const notificationsStore = useNotificationsStore()
+const route = useRoute()
+const notificationPanelVisible = ref(false)
+const notificationRef = ref<HTMLElement>()
 
 await callOnce('current-user', () => auth.fetchMe())
+await callOnce('current-notifications', () => notificationsStore.fetchNotifications())
+
+async function handleNotificationClick(notification: SystemNotification) {
+  try {
+    await notificationsStore.markAsRead(notification.id)
+    notificationPanelVisible.value = false
+
+    if (notification.targetPath) {
+      await navigateTo(notification.targetPath)
+    }
+  } catch {
+    ElMessage.error('通知状态更新失败')
+  }
+}
+
+function toggleNotificationPanel() {
+  notificationPanelVisible.value = !notificationPanelVisible.value
+}
+
+function handleDocumentClick(event: MouseEvent) {
+  const target = event.target
+
+  if (!(target instanceof Node)) {
+    return
+  }
+
+  if (!notificationRef.value?.contains(target)) {
+    notificationPanelVisible.value = false
+  }
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    notificationPanelVisible.value = false
+  }
+)
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
 </script>
 
 <template>
@@ -31,6 +83,71 @@ await callOnce('current-user', () => auth.fetchMe())
         </div>
 
         <div class="header-actions">
+          <div ref="notificationRef" class="notification-trigger">
+            <button
+              type="button"
+              class="notification-button"
+              aria-label="站内通知"
+              @click.stop="toggleNotificationPanel"
+            >
+              <el-badge
+                :value="notificationsStore.unreadCount"
+                :hidden="!notificationsStore.hasUnread"
+                :max="99"
+              >
+                <el-icon>
+                  <Bell />
+                </el-icon>
+              </el-badge>
+            </button>
+
+            <div
+              v-if="notificationPanelVisible"
+              class="notification-panel"
+              @click.stop
+            >
+              <div class="notification-head">
+                <span>站内通知</span>
+                <el-button
+                  :icon="Refresh"
+                  link
+                  :loading="notificationsStore.pending"
+                  @click="notificationsStore.fetchNotifications()"
+                >
+                  刷新
+                </el-button>
+              </div>
+
+              <el-empty
+                v-if="notificationsStore.notifications.length === 0"
+                description="暂无通知"
+                :image-size="64"
+              />
+
+              <div v-else class="notification-list">
+                <button
+                  v-for="notification in notificationsStore.notifications"
+                  :key="notification.id"
+                  type="button"
+                  class="notification-item"
+                  :class="{ unread: !notification.readAt }"
+                  @click="handleNotificationClick(notification)"
+                >
+                  <div class="notification-title-row">
+                    <span class="notification-title">{{ notification.title }}</span>
+                    <span v-if="!notification.readAt" class="unread-dot" />
+                  </div>
+                  <div class="notification-content">
+                    {{ notification.content }}
+                  </div>
+                  <div class="notification-time">
+                    {{ notification.createdAt }}
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <span class="user-name">{{ auth.user?.nickname || '管理员' }}</span>
           <el-button :icon="SwitchButton" plain @click="auth.logout">
             退出登录
@@ -114,6 +231,110 @@ await callOnce('current-user', () => auth.fetchMe())
   display: flex;
   gap: 16px;
   align-items: center;
+}
+
+.notification-trigger {
+  position: relative;
+}
+
+.notification-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #606266;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid #dcdfe6;
+  border-radius: 50%;
+}
+
+.notification-button:hover {
+  color: var(--admin-primary);
+  border-color: var(--admin-primary);
+}
+
+.notification-panel {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  z-index: 20;
+  width: 360px;
+  max-height: 420px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 16%);
+}
+
+.notification-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.notification-item:hover {
+  border-color: var(--admin-primary);
+}
+
+.notification-item.unread {
+  background: #eff6ff;
+}
+
+.notification-title-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notification-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  background: var(--admin-primary);
+  border-radius: 50%;
+}
+
+.notification-content {
+  margin-top: 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notification-time {
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .user-name {

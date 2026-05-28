@@ -79,13 +79,13 @@ Nuxt 全栈后台 + AI 应用落地
 
 ## 阶段 5：通知闭环
 
-- [ ] 设计通知类型 `Notification`
-- [ ] 创建 mock 通知数据
-- [ ] 创建 `GET /api/notifications`
-- [ ] 创建 `POST /api/notifications/read`
-- [ ] 工单创建后生成站内通知
-- [ ] 后台 header 显示未读通知数量
-- [ ] 通知列表支持标记已读
+- [x] 设计通知类型 `Notification`
+- [x] 创建 mock 通知数据
+- [x] 创建 `GET /api/notifications`
+- [x] 创建 `POST /api/notifications/read`
+- [x] 工单创建后生成站内通知
+- [x] 后台 header 显示未读通知数量
+- [x] 通知列表支持标记已读
 
 ## 阶段 6：移动端处理页
 
@@ -170,3 +170,4 @@ npm run build
 - 2026-05-22：给工单增加来源字段，普通创建标记为“手动创建”，AI 草稿保存标记为“AI 草稿”，列表和详情页均可展示来源。
 - 2026-05-22：把 AI 草稿建议从工单描述中拆出为结构化 `aiSuggestion`，详情页单独展示 AI 建议和人工处理记录。
 - 2026-05-25：接入 Vercel AI SDK，通过阿里百炼 OpenAI 兼容接口调用通义千问，并使用 `zod` 约束 AI 稳定返回工单草稿 JSON。
+- 2026-05-26：完成站内通知闭环，新增通知类型、mock 数据、查询/已读接口，并在工单创建和状态流转后生成 header 未读通知。
