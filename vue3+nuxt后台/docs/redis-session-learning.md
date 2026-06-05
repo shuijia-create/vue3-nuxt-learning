@@ -54,14 +54,10 @@ session：
 server/data/auth.ts
 ```
 
-这里做了两种 session 存储模式：
+这里现在只做一件事：
 
 ```text
-SESSION_STORE=memory
-  token -> username 存在 Nuxt 服务内存 Map
-
-SESSION_STORE=redis
-  token -> session 存在 Redis
+token -> session 存到 Redis
 ```
 
 登录成功后：
@@ -72,7 +68,7 @@ createAuthSession(username)
 
 会生成 token。
 
-如果是 Redis 模式，会写入：
+它会写入 Redis：
 
 ```text
 key:   nuxt-admin:session:<token>
@@ -116,12 +112,11 @@ docker start nuxt-admin-redis
 
 如果你电脑没装 Docker，也可以用 WSL 安装 Redis。先学项目时，Docker 方式更省事。
 
-## 项目里怎么切到 Redis 模式
+## 项目里怎么配置 Redis
 
 打开本地 `.env`，加上或修改：
 
 ```env
-SESSION_STORE=redis
 REDIS_URL="redis://localhost:6379"
 ```
 
@@ -136,7 +131,7 @@ npm run dev
 ## 怎么验证 token 真的存进 Redis
 
 1. 启动 Redis。
-2. `.env` 设置 `SESSION_STORE=redis`。
+2. `.env` 设置 `REDIS_URL="redis://localhost:6379"`。
 3. 启动项目。
 4. 浏览器登录 `admin / 123456`。
 5. 查看 Redis 里的 session key。
@@ -233,21 +228,32 @@ POST /api/logout
 
 删除 Redis key 后，旧 token 立刻失效。
 
-## 现在代码还保留 memory 模式的原因
+## Redis 没启动会发生什么
 
-如果你电脑还没装 Redis，项目仍然能跑：
+现在项目只保留 Redis token 逻辑。
 
-```env
-SESSION_STORE=memory
+所以 Redis 没启动时：
+
+```text
+登录接口会连不上 Redis
+/api/me 也没法通过 token 找到用户
 ```
 
-这个模式适合学习 Nuxt 登录流程，但不适合真实项目，因为服务重启后内存 Map 会清空。
+这不是接口消失了，而是登录态必须依赖 Redis。
 
-真实项目更建议：
+先在 Ubuntu 里确认：
 
-```env
-SESSION_STORE=redis
+```bash
+redis-cli ping
 ```
+
+看到：
+
+```text
+PONG
+```
+
+再启动 Nuxt 项目。
 
 ## 你现在要记住的重点
 

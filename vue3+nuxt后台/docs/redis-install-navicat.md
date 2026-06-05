@@ -122,7 +122,6 @@ redis-cli ping
 打开项目根目录的本地 `.env` 文件，加入：
 
 ```env
-SESSION_STORE=redis
 REDIS_URL="redis://localhost:6379"
 ```
 
@@ -140,7 +139,6 @@ npm run dev
 2. 确保 `.env` 已配置：
 
 ```env
-SESSION_STORE=redis
 REDIS_URL="redis://localhost:6379"
 ```
 
@@ -217,7 +215,7 @@ sudo service redis-server start
 1. `.env` 里有没有：
 
 ```env
-SESSION_STORE=redis
+REDIS_URL="redis://localhost:6379"
 ```
 
 2. 改完 `.env` 后有没有重启 `npm run dev`。

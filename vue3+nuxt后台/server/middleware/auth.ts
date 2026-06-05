@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   // 从 cookie 里取出登录时写入的 token。
   const token = getCookie(event, authCookieName)
-  // token 本身不是用户信息，需要先在服务端 session Map 里换成 username。
+  // token 本身不是用户信息，需要先去 Redis 里的 session 查 username。
   const username = await getAuthSessionUsername(token)
 
   if (!username) {

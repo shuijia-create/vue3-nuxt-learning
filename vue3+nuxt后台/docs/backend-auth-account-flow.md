@@ -69,14 +69,10 @@ import { prisma } from '~/server/utils/prisma'
 
 这是登录 token 和 session 的存储文件。
 
-现在它支持两种模式：
+现在只保留 Redis 存储：
 
 ```text
-SESSION_STORE=memory
-  token -> username 存在 Nuxt 服务内存 Map
-
-SESSION_STORE=redis
-  token -> session 存在 Redis
+token -> session 存在 Redis
 ```
 
 登录成功时：
@@ -87,7 +83,7 @@ await createAuthSession(username)
 
 会生成一个随机 token，并把它和用户名绑定起来。
 
-Redis 模式下会写入：
+Redis 里会写入：
 
 ```text
 key:   nuxt-admin:session:<token>
@@ -103,7 +99,7 @@ await getAuthSessionUsername(token)
 
 会用 cookie 里的 token 找回 username。
 
-注意：`memory` 模式是学习默认值。服务重启后 session 会丢失。`redis` 模式更接近真实项目。
+注意：现在没有内存兜底。Redis 没启动时，登录态就无法保存和读取。
 
 ### `server/api/login.post.ts`
 
@@ -176,7 +172,7 @@ POST /api/logout
 
 它做两件事：
 
-1. 删除服务端内存 session，让旧 token 失效。
+1. 删除 Redis 里的 session key，让旧 token 失效。
 2. 删除浏览器 cookie。
 
 ### `server/api/users/index.get.ts`
@@ -233,8 +229,7 @@ MySQL users 表
 server/data/auth.ts
   |
   | createAuthSession(username)
-  | 生成 token，并保存 token -> username
-  | Redis 模式下实际保存到 Redis
+  | 生成 token，并保存 token -> username 到 Redis
   v
 server/api/login.post.ts
   |
@@ -327,9 +322,8 @@ if (!isSuperAdmin(event.context.currentUser)) {
 - 后端接口会统一鉴权。
 - 创建账号需要超级管理员。
 
-但它仍然是学习版：
+但它仍然可以继续升级：
 
-- session 存在内存里，服务重启后会丢。
 - 没有做 token 过期清理。
 - 没有做账号禁用、重置密码、删除账号。
 - 角色还是单字段字符串，没有拆成角色表和权限表。

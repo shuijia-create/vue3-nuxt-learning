@@ -20,7 +20,6 @@ type SessionRedisClient = {
 }
 
 const globalForAuth = globalThis as unknown as {
-  authSessions?: Map<string, AuthSession>
   redisClient?: SessionRedisClient
   redisConnectPromise?: Promise<SessionRedisClient>
 }
@@ -28,25 +27,9 @@ const globalForAuth = globalThis as unknown as {
 const sessionTtlSeconds = 60 * 60 * 24
 const redisSessionKeyPrefix = 'nuxt-admin:session:'
 
-// 没有配置 Redis 时，学习项目仍然可以用内存 Map 跑起来。
-// 配置 SESSION_STORE=redis 后，这个 Map 就不会再保存登录态，token 会写入 Redis。
-const authSessions = globalForAuth.authSessions ?? new Map<string, AuthSession>()
-
-if (import.meta.dev) {
-  globalForAuth.authSessions = authSessions
-}
-
-function shouldUseRedisSessionStore() {
-  // SESSION_STORE 明确配置时，以它为准；memory 可以强制走内存模式。
-  if (process.env.SESSION_STORE) {
-    return process.env.SESSION_STORE === 'redis'
-  }
-
-  // 没写 SESSION_STORE 但配置了 REDIS_URL，也认为你想把 token 存到 Redis。
-  return Boolean(process.env.REDIS_URL)
-}
-
 async function getRedisClient() {
+  // 项目现在只保留 Redis session。
+  // 没写 REDIS_URL 时默认连本机 Redis：redis://localhost:6379。
   const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
 
   if (!globalForAuth.redisClient) {
@@ -55,6 +38,7 @@ async function getRedisClient() {
     }) as unknown as SessionRedisClient
 
     client.on('error', (error) => {
+      // Redis 没启动、端口不对、连接断开时，会在终端看到这个错误。
       console.error('[redis] session store error:', error)
     })
 
@@ -122,14 +106,9 @@ export async function createAuthSession(username: string) {
     createdAt: Date.now()
   }
 
-  if (shouldUseRedisSessionStore()) {
-    // Redis 模式：token -> session 写入 Redis，服务重启后登录态仍然可以被 Redis 找回。
-    await saveSessionToRedis(token, session)
-    return token
-  }
-
-  // token 本身不直接存用户信息，只在服务端 Map 里保存 token -> username 的关系。
-  authSessions.set(token, session)
+  // token 本身不直接存用户信息，真实登录态统一保存到 Redis。
+  // Redis 里保存的是 nuxt-admin:session:<token> -> { username, createdAt }。
+  await saveSessionToRedis(token, session)
 
   return token
 }
@@ -139,15 +118,10 @@ export async function getAuthSessionUsername(token: string | undefined) {
     return null
   }
 
-  if (shouldUseRedisSessionStore()) {
-    // Redis 模式：从 Redis 里用 token 查 session，再拿到 username。
-    const session = await readSessionFromRedis(token)
+  // 从 Redis 里用 token 查 session，再拿到 username。
+  const session = await readSessionFromRedis(token)
 
-    return session?.username ?? null
-  }
-
-  // middleware 只认服务端保存过的 token；伪造一个随机 token 查不到 username，就会被当成未登录。
-  return authSessions.get(token)?.username ?? null
+  return session?.username ?? null
 }
 
 export async function deleteAuthSession(token: string | undefined) {
@@ -155,14 +129,8 @@ export async function deleteAuthSession(token: string | undefined) {
     return
   }
 
-  if (shouldUseRedisSessionStore()) {
-    // Redis 模式：删除 Redis key，旧 token 立刻失效。
-    await deleteSessionFromRedis(token)
-    return
-  }
-
-  // 退出登录时删除服务端 session，让旧 token 立即失效。
-  authSessions.delete(token)
+  // 退出登录时删除 Redis key，让旧 token 立即失效。
+  await deleteSessionFromRedis(token)
 }
 
 // 不需要登录也能访问的接口。登录接口必须公开，否则用户还没 token 就无法登录。

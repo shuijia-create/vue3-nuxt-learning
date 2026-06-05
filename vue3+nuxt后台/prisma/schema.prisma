@@ -25,7 +25,44 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   // 更新时间；Prisma 每次更新这条用户记录时会自动刷新，数据库字段名是 updated_at。
   updatedAt    DateTime @updatedAt @map("updated_at")
+  // 这个用户创建过的工单列表；只是 Prisma 关系字段，不会单独生成数据库字段。
+  workOrders   WorkOrder[]
 
   // Prisma 模型叫 User，真实 MySQL 表名叫 users。
   @@map("users")
+}
+
+model WorkOrder {
+  // 工单主键 ID；MySQL 会自动递增。
+  id           Int      @id @default(autoincrement())
+  // 工单编号，例如 WO-20260605-001；给用户看，也方便搜索。
+  code         String   @unique @db.VarChar(50)
+  // 工单标题。
+  title        String   @db.VarChar(100)
+  // 工单类型：1 设备故障，2 IT 问题，3 质量异常。
+  type         Int      @db.TinyInt
+  // 工单状态：1 待处理，2 处理中，3 待确认。
+  status       Int      @default(1) @db.TinyInt
+  // 优先级：1 低，2 中，3 高。
+  priority     Int      @default(2) @db.TinyInt
+  // 提交人姓名；当前先保留文本，后面如果要做“指派给谁”再关联 users。
+  submitter    String   @db.VarChar(50)
+  // 工单描述，内容可能比较长，所以用 Text。
+  description  String   @db.Text
+  // 来源：1 手动创建，2 AI 草稿。
+  source       Int      @default(1) @db.TinyInt
+  // AI 建议内容；只有 AI 草稿保存成工单时才会有值。
+  aiSuggestion Json?    @map("ai_suggestion")
+  // 创建人用户 ID；可以为空，避免老数据或演示数据没有登录用户时写不进去。
+  createdBy    Int?     @map("created_by")
+  // 关联 users.id。用户被删除时，工单保留，只把 created_by 置空。
+  creator      User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  // 创建时间；默认使用数据库当前时间。
+  createdAt    DateTime @default(now()) @map("created_at")
+  // 更新时间；Prisma 每次更新这条工单时会自动刷新。
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([status], map: "work_orders_status_idx")
+  @@index([type], map: "work_orders_type_idx")
+  @@map("work_orders")
 }

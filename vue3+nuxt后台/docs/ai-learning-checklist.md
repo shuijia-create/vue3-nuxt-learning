@@ -105,7 +105,7 @@ Nuxt 全栈后台 + AI 应用落地
 - [ ] 学 MySQL 基础
 - [x] 安装并配置 Prisma
 - [x] 设计 `users` 表
-- [ ] 设计 `work_orders` 表
+- [x] 设计 `work_orders` 表
 - [ ] 设计 `notifications` 表
 - [ ] 设计 `operation_logs` 表
 - [ ] 工单列表从数据库读取
@@ -179,3 +179,5 @@ npm run build
 - 2026-06-04：新增后端登录、token、账号创建流程说明文档，并给关键后端文件补充学习注释。
 - 2026-06-05：安装 Redis 客户端依赖，给登录 session 增加 Redis 存储模式，并新增 Redis 保存 token 的项目学习文档。
 - 2026-06-05：新增 Redis 安装和 Navicat Premium 17 连接教程，说明本地启动 Redis、配置 `.env`、查看登录 session key 的步骤。
+- 2026-06-05：清理登录 session 的内存存储分支，只保留 Redis 保存 token，降低学习成本。
+- 2026-06-05：设计 `work_orders` 表的 Prisma 模型，明确 type、status、priority、source 使用数字值保存，前端负责翻译中文。
