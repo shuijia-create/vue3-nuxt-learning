@@ -4,12 +4,16 @@ import {
   DataAnalysis,
   Document,
   Setting,
-  Tickets
+  Tickets,
+  UserFilled
 } from '@element-plus/icons-vue'
+import { useAuthStore } from '~/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
 
 const activeMenu = computed(() => route.path)
+const isSuperAdmin = computed(() => auth.user?.roles.includes('super_admin') ?? false)
 
 const menus = [
   {
@@ -33,11 +37,21 @@ const menus = [
     icon: ChatDotRound
   },
   {
+    path: '/accounts',
+    title: '账号管理',
+    icon: UserFilled,
+    requiresSuperAdmin: true
+  },
+  {
     path: '/system',
     title: '系统日志',
     icon: Setting
   }
 ]
+
+const visibleMenus = computed(() => {
+  return menus.filter((item) => !item.requiresSuperAdmin || isSuperAdmin.value)
+})
 </script>
 
 <template>
@@ -50,7 +64,7 @@ const menus = [
     router
   >
     <el-menu-item
-      v-for="item in menus"
+      v-for="item in visibleMenus"
       :key="item.path"
       :index="item.path"
     >

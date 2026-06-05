@@ -110,10 +110,20 @@ export const usePageTabsStore = defineStore('page-tabs', () => {
     persistTabs()
   }
 
+  function clearTabs() {
+    tabs.value = []
+    isRestored.value = true
+
+    if (import.meta.client) {
+      localStorage.removeItem(pageTabsStorageKey)
+    }
+  }
+
   return {
     tabs,
     restoreTabs,
     addTab,
-    removeTab
+    removeTab,
+    clearTabs
   }
 })

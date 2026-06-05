@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { usePageTabsStore } from '~/stores/page-tabs'
 
 type LoginPayload = {
   username: string
@@ -47,9 +48,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    const pageTabsStore = usePageTabsStore()
+
     await $fetch('/api/logout', { method: 'POST' })
     token.value = null
     user.value = null
+    pageTabsStore.clearTabs()
     await navigateTo('/login')
   }
 

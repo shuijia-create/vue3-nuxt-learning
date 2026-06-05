@@ -89,7 +89,7 @@ Nuxt 全栈后台 + AI 应用落地
 
 ## 阶段 6：移动端处理页
 
-先做移动端 H5，不急着做小程序。
+先不做移动端 H5，不急着做小程序。
 
 - [ ] 创建 `/mobile/work-orders`
 - [ ] 创建 `/mobile/work-orders/[id]`
@@ -103,8 +103,8 @@ Nuxt 全栈后台 + AI 应用落地
 目标是把 mock 数据换成真实数据库。
 
 - [ ] 学 MySQL 基础
-- [ ] 安装并配置 Prisma
-- [ ] 设计 `users` 表
+- [x] 安装并配置 Prisma
+- [x] 设计 `users` 表
 - [ ] 设计 `work_orders` 表
 - [ ] 设计 `notifications` 表
 - [ ] 设计 `operation_logs` 表
@@ -171,3 +171,11 @@ npm run build
 - 2026-05-22：把 AI 草稿建议从工单描述中拆出为结构化 `aiSuggestion`，详情页单独展示 AI 建议和人工处理记录。
 - 2026-05-25：接入 Vercel AI SDK，通过阿里百炼 OpenAI 兼容接口调用通义千问，并使用 `zod` 约束 AI 稳定返回工单草稿 JSON。
 - 2026-05-26：完成站内通知闭环，新增通知类型、mock 数据、查询/已读接口，并在工单创建和状态流转后生成 header 未读通知。
+- 2026-06-04：安装并初始化 Prisma，配置 MySQL 数据源读取 `DATABASE_URL`，并通过 `npx prisma validate` 校验。
+- 2026-06-04：通过 Prisma migration 创建 MySQL `users` 表，包含用户名、密码哈希、昵称、角色和创建/更新时间字段。
+- 2026-06-04：向 `users` 表写入 `admin` 演示账号，并把登录接口改为通过 Prisma 查询 MySQL 用户和校验密码哈希。
+- 2026-06-04：将登录密码校验从简单演示哈希升级为 bcrypt 单向哈希，并更新 `admin` 账号的 `password_hash`。
+- 2026-06-04：新增账号管理页面和 `/api/users` 接口，只有 `super_admin` 可以创建账号，新账号密码继续写入 bcrypt 哈希。
+- 2026-06-04：新增后端登录、token、账号创建流程说明文档，并给关键后端文件补充学习注释。
+- 2026-06-05：安装 Redis 客户端依赖，给登录 session 增加 Redis 存储模式，并新增 Redis 保存 token 的项目学习文档。
+- 2026-06-05：新增 Redis 安装和 Navicat Premium 17 连接教程，说明本地启动 Redis、配置 `.env`、查看登录 session key 的步骤。

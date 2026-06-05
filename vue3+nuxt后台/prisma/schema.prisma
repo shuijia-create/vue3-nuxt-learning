@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  // 这里声明数据库类型是 MySQL。
+  // 真正的连接地址在 .env 的 DATABASE_URL，由 prisma.config.ts 读取。
+  provider = "mysql"
+}
+
+model User {
+  // 数据库主键，给程序查询、关联其他表使用；MySQL 会自动递增。
+  id           Int      @id @default(autoincrement())
+  // 登录用户名；@unique 表示不能重复，避免两个用户使用同一个账号。
+  username     String   @unique @db.VarChar(50)
+  // 密码哈希，不存明文密码；@map 表示数据库字段名是 password_hash。
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  // 页面上展示的用户昵称，例如“管理员”。
+  nickname     String   @db.VarChar(50)
+  // 当前先用单角色字符串；admin 表示普通管理员，super_admin 表示超级管理员。
+  // 后续如果做复杂权限，再拆成角色表和用户角色关系表。
+  role         String   @default("admin") @db.VarChar(30)
+  // 创建时间；默认使用数据库当前时间，数据库字段名是 created_at。
+  createdAt    DateTime @default(now()) @map("created_at")
+  // 更新时间；Prisma 每次更新这条用户记录时会自动刷新，数据库字段名是 updated_at。
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Prisma 模型叫 User，真实 MySQL 表名叫 users。
+  @@map("users")
+}

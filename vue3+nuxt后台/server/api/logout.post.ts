@@ -1,6 +1,10 @@
-import { authCookieName } from '~/server/data/auth'
+import { authCookieName, deleteAuthSession } from '~/server/data/auth'
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
+  const token = getCookie(event, authCookieName)
+
+  await deleteAuthSession(token)
+
   deleteCookie(event, authCookieName, {
     path: '/'
   })

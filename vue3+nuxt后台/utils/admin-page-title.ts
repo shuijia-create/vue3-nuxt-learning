@@ -3,6 +3,7 @@ const adminPageTitles: Record<string, string> = {
   '/work-orders': '工单列表',
   '/ai/work-order-draft': '工单草稿助手',
   '/ai/knowledge': '企业文档问答',
+  '/accounts': '账号管理',
   '/system': '系统日志'
 }
 
