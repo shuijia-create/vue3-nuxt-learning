@@ -3,55 +3,44 @@ import {
   ChatDotRound,
   DataAnalysis,
   Document,
+  Key,
+  Management,
   Setting,
   Tickets,
   UserFilled
 } from '@element-plus/icons-vue'
-import { useAuthStore } from '~/stores/auth'
+import type { MenuRouteItem } from '~/types/menu'
 
 const route = useRoute()
-const auth = useAuthStore()
 
-const activeMenu = computed(() => route.path)
-const isSuperAdmin = computed(() => auth.user?.roles.includes('super_admin') ?? false)
+const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+const iconMap = {
+  ChatDotRound,
+  DataAnalysis,
+  Document,
+  Key,
+  Management,
+  Setting,
+  Tickets,
+  UserFilled
+}
 
-const menus = [
-  {
-    path: '/dashboard',
-    title: '工作台',
-    icon: DataAnalysis
-  },
-  {
-    path: '/work-orders',
-    title: '工单列表',
-    icon: Tickets
-  },
-  {
-    path: '/ai/work-order-draft',
-    title: '工单草稿助手',
-    icon: Document
-  },
-  {
-    path: '/ai/knowledge',
-    title: '企业文档问答',
-    icon: ChatDotRound
-  },
-  {
-    path: '/accounts',
-    title: '账号管理',
-    icon: UserFilled,
-    requiresSuperAdmin: true
-  },
-  {
-    path: '/system',
-    title: '系统日志',
-    icon: Setting
-  }
-]
-
-const visibleMenus = computed(() => {
-  return menus.filter((item) => !item.requiresSuperAdmin || isSuperAdmin.value)
+const { data } = await useAsyncData('sidebar-menus', () => {
+  return requestFetch<{ list: MenuRouteItem[] }>('/api/menus')
 })
+
+const visibleMenus = computed(() => data.value?.list ?? [])
+const activeMenu = computed(() => {
+  const matchedMenu = visibleMenus.value.find((item) => {
+    return route.path === item.path || route.path.startsWith(`${item.path}/`)
+  })
+
+  return matchedMenu?.path ?? route.path
+})
+
+function getMenuIcon(icon: string) {
+  return iconMap[icon as keyof typeof iconMap] ?? Setting
+}
 </script>
 
 <template>
@@ -69,7 +58,7 @@ const visibleMenus = computed(() => {
       :index="item.path"
     >
       <el-icon>
-        <component :is="item.icon" />
+        <component :is="getMenuIcon(item.icon)" />
       </el-icon>
       <span>{{ item.title }}</span>
     </el-menu-item>

@@ -27,6 +27,10 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
   // 这个用户创建过的工单列表；只是 Prisma 关系字段，不会单独生成数据库字段。
   workOrders   WorkOrder[]
+  // 这个用户收到的站内通知。
+  notifications Notification[]
+  // 这个用户产生过的操作日志；日志里也会保留 operator 文本，方便用户改名后仍能看懂历史记录。
+  operationLogs OperationLog[]
 
   // Prisma 模型叫 User，真实 MySQL 表名叫 users。
   @@map("users")
@@ -57,6 +61,8 @@ model WorkOrder {
   createdBy    Int?     @map("created_by")
   // 关联 users.id。用户被删除时，工单保留，只把 created_by 置空。
   creator      User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  // 这张工单关联过的通知列表。
+  notifications Notification[]
   // 创建时间；默认使用数据库当前时间。
   createdAt    DateTime @default(now()) @map("created_at")
   // 更新时间；Prisma 每次更新这条工单时会自动刷新。
@@ -65,4 +71,129 @@ model WorkOrder {
   @@index([status], map: "work_orders_status_idx")
   @@index([type], map: "work_orders_type_idx")
   @@map("work_orders")
+}
+
+model Role {
+  // 角色主键 ID。
+  id          Int      @id @default(autoincrement())
+  // 角色名称，例如“普通管理员”“超级管理员”。
+  name        String   @db.VarChar(50)
+  // 角色编码，例如 admin、super_admin；users.role 和 role_permissions.role 都保存这个编码。
+  code        String   @unique @db.VarChar(30)
+  // 角色说明，方便在角色管理页解释这个角色能做什么。
+  description String?  @db.VarChar(255)
+  // 状态：1 启用，2 停用。当前先只展示，不接入真实禁用逻辑。
+  status      Int      @default(1) @db.TinyInt
+  // 排序值，用来控制角色列表展示顺序。
+  sort        Int      @default(0)
+  // 创建时间。
+  createdAt   DateTime @default(now()) @map("created_at")
+  // 更新时间。
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model Notification {
+  // 通知主键 ID；数据库用数字自增，前端展示时可以转成字符串。
+  id                 Int        @id @default(autoincrement())
+  // 通知类型：1 工单创建，2 工单状态变化。
+  type               Int        @db.TinyInt
+  // 通知标题，例如“新工单待处理”。
+  title              String     @db.VarChar(100)
+  // 通知正文，说明发生了什么。
+  content            String     @db.Text
+  // 接收通知的用户 ID，对应 users.id。
+  recipientUserId    Int        @map("recipient_user_id")
+  // 通知接收人。用户删除后，通知一起删除，避免留下无人接收的数据。
+  recipient          User       @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  // 关联工单 ID；系统通知不一定都关联工单，所以可以为空。
+  relatedWorkOrderId Int?       @map("related_work_order_id")
+  // 关联的工单。工单删除后，通知保留，只把关联字段置空。
+  relatedWorkOrder   WorkOrder? @relation(fields: [relatedWorkOrderId], references: [id], onDelete: SetNull)
+  // 点击通知后跳转的前端路径，例如 /work-orders/1。
+  targetPath         String?    @map("target_path") @db.VarChar(255)
+  // 有值代表已读；为空代表未读。
+  readAt             DateTime?  @map("read_at")
+  // 创建时间。
+  createdAt          DateTime   @default(now()) @map("created_at")
+  // 更新时间；标记已读时会刷新。
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  @@index([recipientUserId, readAt], map: "notifications_recipient_read_idx")
+  @@index([relatedWorkOrderId], map: "notifications_related_work_order_idx")
+  @@map("notifications")
+}
+
+model OperationLog {
+  // 操作日志主键 ID。
+  id             Int      @id @default(autoincrement())
+  // 模块名，例如“工单”“账号”。日志是给人看的，所以这里保留文本。
+  module         String   @db.VarChar(30)
+  // 操作名，例如“创建工单”“状态流转”。
+  action         String   @db.VarChar(30)
+  // 操作人显示名；即使用户后面改昵称，历史日志也能看懂。
+  operator       String   @db.VarChar(50)
+  // 操作人用户 ID；系统自动任务可能没有具体用户，所以可以为空。
+  operatorUserId Int?     @map("operator_user_id")
+  // 关联 users.id。用户删除后，日志保留，只把 operator_user_id 置空。
+  operatorUser   User?    @relation(fields: [operatorUserId], references: [id], onDelete: SetNull)
+  // 操作对象，例如工单编号 WO-20260605-001。
+  target         String   @db.VarChar(100)
+  // 操作详情，保存一段可读说明。
+  detail         String   @db.Text
+  // 日志创建时间。日志通常不更新，所以不需要 updated_at。
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt], map: "operation_logs_created_at_idx")
+  @@index([operatorUserId], map: "operation_logs_operator_user_idx")
+  @@map("operation_logs")
+}
+
+model Permission {
+  // 权限主键 ID。
+  id              Int              @id @default(autoincrement())
+  // 权限名称，例如“工单列表”“创建工单”。
+  name            String           @db.VarChar(50)
+  // 权限编码，例如 work_orders.page、work_orders.create，用来给代码判断权限。
+  code            String           @unique @db.VarChar(80)
+  // 权限类型：1 页面权限，2 按钮权限。
+  type            Int              @db.TinyInt
+  // 页面权限可以没有 parent_id；按钮权限通过 parent_id 挂到所属页面下面。
+  parentId        Int?             @map("parent_id")
+  // 父级权限。比如“创建工单”按钮的父级是“工单列表”页面。
+  parent          Permission?      @relation("PermissionTree", fields: [parentId], references: [id], onDelete: Cascade)
+  // 子权限列表，主要用于页面下展示按钮权限。
+  children        Permission[]     @relation("PermissionTree")
+  // 页面权限对应的前端路由；按钮权限可以为空。
+  path            String?          @db.VarChar(120)
+  // 排序值，用来控制权限表格展示顺序。
+  sort            Int              @default(0)
+  // 哪些角色拥有这个权限。
+  rolePermissions RolePermission[]
+  // 创建时间。
+  createdAt       DateTime         @default(now()) @map("created_at")
+  // 更新时间。
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@index([type], map: "permissions_type_idx")
+  @@index([parentId], map: "permissions_parent_idx")
+  @@map("permissions")
+}
+
+model RolePermission {
+  // 角色权限关系主键 ID。
+  id           Int        @id @default(autoincrement())
+  // 当前项目 role 还是 users.role 里的字符串：admin、super_admin。
+  role         String     @db.VarChar(30)
+  // 权限 ID，对应 permissions.id。
+  permissionId Int        @map("permission_id")
+  // 关联的权限。
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  // 创建时间。
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@unique([role, permissionId], map: "role_permissions_role_permission_key")
+  @@index([role], map: "role_permissions_role_idx")
+  @@map("role_permissions")
 }

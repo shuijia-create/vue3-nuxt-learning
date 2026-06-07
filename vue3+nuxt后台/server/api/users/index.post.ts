@@ -1,9 +1,9 @@
 import {
   createUserAccount,
   findAuthUserByUsername,
-  isSuperAdmin,
-  isUserRole
+  isSuperAdmin
 } from '~/server/services/users'
+import { roleExists } from '~/server/services/roles'
 
 type CreateUserBody = {
   username?: string
@@ -55,8 +55,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // role 只能是服务端白名单里的值，避免前端随便传一个未知角色。
-  if (!isUserRole(role)) {
+  // role 只能选择角色表里已经存在的角色，避免前端随便传一个未知角色。
+  if (!(await roleExists(role))) {
     throw createError({
       statusCode: 400,
       statusMessage: '账号角色不正确'

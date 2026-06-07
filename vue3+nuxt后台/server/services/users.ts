@@ -5,10 +5,6 @@ import { hashPassword, verifyPassword } from '~/server/utils/password'
 type DbUserForAuth = Pick<User, 'id' | 'username' | 'nickname' | 'role'>
 type DbUserForList = Pick<User, 'id' | 'username' | 'nickname' | 'role' | 'createdAt'>
 
-export const userRoles = ['admin', 'super_admin'] as const
-
-export type UserRole = typeof userRoles[number]
-
 // 返回给前端和鉴权 middleware 使用的用户结构。
 // 注意这里没有 passwordHash，避免把密码哈希暴露给浏览器。
 export type AuthUser = {
@@ -27,7 +23,7 @@ type CreateUserInput = {
   username: string
   password: string
   nickname: string
-  role: UserRole
+  role: string
 }
 
 // 把数据库里的 User 记录转换成前端需要的登录用户信息。
@@ -48,11 +44,6 @@ function toUserListItem(user: DbUserForList): UserListItem {
     role: user.role,
     createdAt: user.createdAt.toISOString()
   }
-}
-
-export function isUserRole(role: string): role is UserRole {
-  // 用白名单限制 role，防止接口收到乱写的角色字符串。
-  return userRoles.includes(role as UserRole)
 }
 
 export function isSuperAdmin(user: AuthUser | undefined) {
@@ -116,6 +107,19 @@ export async function createUserAccount(input: CreateUserInput) {
       passwordHash,
       nickname: input.nickname,
       role: input.role
+    }
+  })
+
+  return toUserListItem(user)
+}
+
+export async function updateUserRole(id: number, role: string) {
+  const user = await prisma.user.update({
+    where: {
+      id
+    },
+    data: {
+      role
     }
   })
 
