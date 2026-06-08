@@ -8,7 +8,7 @@
 
 1. 前端调用 `POST /api/login`，提交用户名和密码。
 2. 后端去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
-3. 校验成功后，后端生成一个随机 token，写入 cookie，并返回给前端。
+3. 校验成功后，后端生成一个随机 token，写入 `httpOnly` cookie，不返回给前端 JavaScript。
 4. 浏览器后续请求接口时自动带上 cookie。
 5. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
 6. 创建账号时，只有 `super_admin` 可以调用 `POST /api/users`。
@@ -114,13 +114,12 @@ POST /api/login
 1. 用 `readBody()` 读取前端传来的 `username` 和 `password`。
 2. 调用 `findUserByCredentials()` 查数据库并校验密码。
 3. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
-4. 用 `setCookie()` 把 token 写入浏览器 cookie，并把 token 和用户信息返回给前端。
+4. 用 `setCookie()` 把 token 写入 `httpOnly` cookie，只把安全的用户信息返回给前端。
 
 返回格式大概是：
 
 ```json
 {
-  "token": "随机生成的 token",
   "user": {
     "id": 1,
     "username": "admin",
@@ -205,7 +204,7 @@ POST /api/users
 
 校验通过后，调用 `createUserAccount()` 写入数据库。真正写入前，密码会先变成 bcrypt 哈希。
 
-## 登录返回 token 的完整流程
+## 登录写入 httpOnly cookie 的完整流程
 
 ```text
 浏览器登录页
@@ -233,10 +232,10 @@ server/data/auth.ts
   v
 server/api/login.post.ts
   |
-  | setCookie("nuxt-admin-token", token)
-  | return { token, user }
+  | setCookie("nuxt-admin-token", token, { httpOnly: true })
+  | return { user }
   v
-浏览器保存 cookie，前端保存 user
+浏览器自动保存 httpOnly cookie，前端 store 只保存 user
 ```
 
 ## 后续接口怎么知道你是谁

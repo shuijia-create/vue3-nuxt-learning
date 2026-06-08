@@ -26,9 +26,35 @@ Nuxt 项目：
 最后启动 Nuxt 项目测试登录
 ```
 
-## 推荐安装方式：WSL Ubuntu 安装 Redis
+## 推荐安装方式：Docker 启动 Redis
 
-你当前电脑没有 `docker` 命令，所以先用 WSL Ubuntu 方式比较合适。
+当前项目推荐先用 Docker 跑 Redis：
+
+```bash
+npm run redis:up
+```
+
+检查 Redis 是否启动成功：
+
+```bash
+npm run redis:ping
+```
+
+如果看到：
+
+```text
+PONG
+```
+
+说明 Docker 里的 Redis 已经可以被项目连接。
+
+更完整的 Docker 对接说明看：
+
+```text
+docs/docker-redis.md
+```
+
+## 备用安装方式：WSL Ubuntu 安装 Redis
 
 ### 第一步：安装 WSL Ubuntu
 

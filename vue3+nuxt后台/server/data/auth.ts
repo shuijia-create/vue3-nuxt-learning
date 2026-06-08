@@ -135,5 +135,6 @@ export async function deleteAuthSession(token: string | undefined) {
 
 // 不需要登录也能访问的接口。登录接口必须公开，否则用户还没 token 就无法登录。
 export const publicApiPaths = [
-  '/api/login'
+  '/api/login',
+  '/api/logout'
 ]

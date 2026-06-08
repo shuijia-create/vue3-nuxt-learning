@@ -194,3 +194,7 @@ npm run build
 - 2026-06-07：同步优化账号管理和权限管理，把创建表单改为弹窗，把主列表统一改为查询区 + `BaseTable`。
 - 2026-06-07：给 `BaseTable` 增加统一分页，并同步优化账号、角色、权限页面的表格卡片、查询区和操作按钮样式。
 - 2026-06-07：修复管理页查询区下拉框被挤压的问题，给 `el-select` 和查询控件补充固定宽度与兜底样式。
+- 2026-06-08：新增 Docker Redis npm 启停脚本和对接文档，明确 Nuxt 运行在宿主机时使用 `REDIS_URL="redis://localhost:6379"` 连接 Docker Redis。
+- 2026-06-08：修复浏览器残留旧登录 cookie 时访问后台出现 `/api/me` 401 白屏的问题，页面 middleware 会校验 Redis session，失效后清理 token 并跳回登录页。
+- 2026-06-08：在 README 补充正常企业项目的登录分层说明，明确 store 不应直接写死接口请求，接口细节应抽到 API/service 层。
+- 2026-06-08：把登录流程改成企业项目常见分层：`utils/api/auth.ts` 封装认证接口，`stores/auth.ts` 只维护用户状态，服务端登录只写 `httpOnly cookie`，不再向前端返回 token。

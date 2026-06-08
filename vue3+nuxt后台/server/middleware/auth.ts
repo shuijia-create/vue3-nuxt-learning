@@ -16,23 +16,32 @@ export default defineEventHandler(async (event) => {
 
   // 从 cookie 里取出登录时写入的 token。
   const token = getCookie(event, authCookieName)
-  // token 本身不是用户信息，需要先去 Redis 里的 session 查 username。
+  // 拿着 token 去 Redis 查对应的 username（登录时 createAuthSession 写入的映射）。
   const username = await getAuthSessionUsername(token)
 
+  // token 无效或已过期 → 没登录，清掉残留 cookie 后返回 401。
   if (!username) {
+    deleteCookie(event, authCookieName, {
+      path: '/'
+    })
+
     throw createError({
       statusCode: 401,
-      statusMessage: '请先登录'
+      message: '请先登录'
     })
   }
 
-  // 每次请求都重新查数据库，避免用户角色被改了以后仍然使用旧权限。
+  // token 有效但用户已从数据库删除（比如被管理员删号），同样拒绝。
   const currentUser = await findAuthUserByUsername(username)
 
   if (!currentUser) {
+    deleteCookie(event, authCookieName, {
+      path: '/'
+    })
+
     throw createError({
       statusCode: 401,
-      statusMessage: '登录用户不存在'
+      message: '登录用户不存在'
     })
   }
 

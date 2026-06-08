@@ -6,7 +6,12 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "redis:up": "docker start redis-dev || docker run --name redis-dev -p 6379:6379 -d redis:7-alpine",
+    "redis:down": "docker stop redis-dev",
+    "redis:ping": "docker exec redis-dev redis-cli ping",
+    "redis:cli": "docker exec -it redis-dev redis-cli",
+    "redis:logs": "docker logs -f redis-dev"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.65",

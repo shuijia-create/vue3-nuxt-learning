@@ -81,13 +81,13 @@ ttl:   24 小时
 最简单的学习方式是用 Docker 跑 Redis：
 
 ```bash
-docker run --name nuxt-admin-redis -p 6379:6379 -d redis:7-alpine
+npm run redis:up
 ```
 
 检查 Redis 是否启动成功：
 
 ```bash
-docker exec -it nuxt-admin-redis redis-cli ping
+npm run redis:ping
 ```
 
 如果返回：
@@ -101,13 +101,13 @@ PONG
 停止 Redis：
 
 ```bash
-docker stop nuxt-admin-redis
+npm run redis:down
 ```
 
 再次启动：
 
 ```bash
-docker start nuxt-admin-redis
+npm run redis:up
 ```
 
 如果你电脑没装 Docker，也可以用 WSL 安装 Redis。先学项目时，Docker 方式更省事。
@@ -139,7 +139,7 @@ npm run dev
 如果用 Docker：
 
 ```bash
-docker exec -it nuxt-admin-redis redis-cli
+npm run redis:cli
 ```
 
 进入 Redis 命令行后执行：
@@ -190,10 +190,10 @@ createAuthSession(username)
   | 3. 生成 token
   | 4. Redis SET nuxt-admin:session:<token> value EX 86400
   v
-setCookie("nuxt-admin-token", token)
+setCookie("nuxt-admin-token", token, { httpOnly: true })
 ```
 
-浏览器只保存 token，不保存用户角色。
+浏览器会自动保存并携带 httpOnly cookie，前端 JavaScript 不直接读取 token，也不保存用户角色。
 
 ## 访问接口时发生了什么
 
@@ -260,7 +260,7 @@ PONG
 ```text
 MySQL 存用户长期数据
 Redis 存登录 token 这种临时状态
-cookie 只保存 token
+cookie 用 httpOnly 方式保存 token
 后端用 token 去 Redis 查 session
 后端再用 username 去 MySQL 查用户和权限
 ```
