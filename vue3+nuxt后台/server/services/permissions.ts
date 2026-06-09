@@ -3,6 +3,7 @@ import { ensureDefaultRoles, listEnabledRoleCodes, roleExists } from '~/server/s
 import type { AuthUser } from '~/server/services/users'
 import type { MenuRouteItem } from '~/types/menu'
 import type { PermissionTreeItem, PermissionType } from '~/types/permission'
+import type { AuthPagePermission } from '~/types/auth'
 
 type PermissionSeedButton = {
   name: string
@@ -143,36 +144,14 @@ const adminDefaultPermissionCodes = [
   'system.page'
 ]
 
-function normalizePagePath(path: string) {
-  const pathWithoutQuery = path.split('?')[0]?.split('#')[0] ?? '/'
-  const normalized = pathWithoutQuery.startsWith('/') ? pathWithoutQuery : `/${pathWithoutQuery}`
-
-  if (normalized.length > 1 && normalized.endsWith('/')) {
-    return normalized.slice(0, -1)
-  }
-
-  return normalized
-}
-
-function splitPath(path: string) {
-  return normalizePagePath(path).split('/').filter(Boolean)
-}
-
-function isDynamicSegment(segment: string) {
-  return segment.startsWith('[') && segment.endsWith(']')
-}
-
-function isPagePathMatched(permissionPath: string, requestPath: string) {
-  const permissionSegments = splitPath(permissionPath)
-  const requestSegments = splitPath(requestPath)
-
-  if (permissionSegments.length !== requestSegments.length) {
-    return false
-  }
-
-  return permissionSegments.every((segment, index) => {
-    return isDynamicSegment(segment) || segment === requestSegments[index]
-  })
+type PermissionWithRoles = {
+  id: number
+  name: string
+  code: string
+  type: number
+  path: string | null
+  sort: number
+  rolePermissions: Array<{ role: string }>
 }
 
 async function ensureDefaultPermissions() {
@@ -360,17 +339,39 @@ export async function listPermissionTree() {
   }
 }
 
-export async function listMenuRoutesForUser(user: AuthUser | undefined) {
+function userOwnsPermission(permission: PermissionWithRoles, userRoles: string[], isSuperAdmin: boolean) {
+  if (isSuperAdmin) {
+    return true
+  }
+
+  return permission.rolePermissions.some(item => userRoles.includes(item.role))
+}
+
+function toMenuRouteItem(permission: PermissionWithRoles): MenuRouteItem {
+  return {
+    code: permission.code,
+    title: permission.name,
+    path: permission.path ?? '/',
+    icon: menuIconMap[permission.code] ?? 'Setting'
+  }
+}
+
+// getInfo 使用：一次性返回当前用户拥有的菜单、页面路由权限和按钮权限。
+// 前端刷新页面后只需要请求 /api/me，就能在本地完成页面跳转判断。
+export async function getAuthPermissionSnapshotForUser(user: AuthUser | undefined) {
   await ensurePermissionSeedData()
 
-  const userRoles = user?.roles ?? []
+  if (!user) {
+    return {
+      menus: [],
+      pagePermissions: [],
+      buttonPermissions: []
+    }
+  }
+
+  const userRoles = user.roles ?? []
   const isSuperAdmin = userRoles.includes('super_admin')
-  // 左侧菜单从 Permission 表读取页面权限，再用 RolePermission 表判断当前角色是否拥有。
-  // 这里没有读取 Nuxt 的 pages 目录，也没有读取前端菜单配置；数据库才是运行时权限真相。
   const permissions = await prisma.permission.findMany({
-    where: {
-      type: 1
-    },
     include: {
       rolePermissions: true
     },
@@ -383,70 +384,33 @@ export async function listMenuRoutesForUser(user: AuthUser | undefined) {
       }
     ]
   })
-
-  return permissions
+  const ownedPermissions = permissions.filter((permission) => {
+    return userOwnsPermission(permission, userRoles, isSuperAdmin)
+  })
+  const menus = ownedPermissions
     .filter((permission) => {
-      if (!permission.path) {
-        return false
-      }
-
-      // /work-orders/[id] 这种动态详情页是“页面权限”，但不是左侧菜单项。
-      if (permission.path.includes('[')) {
-        return false
-      }
-
-      if (isSuperAdmin) {
-        return true
-      }
-
-      return permission.rolePermissions.some(item => userRoles.includes(item.role))
+      return permission.type === 1 && Boolean(permission.path) && !permission.path?.includes('[')
     })
-    .map<MenuRouteItem>(permission => ({
+    .map(toMenuRouteItem)
+  const pagePermissions = ownedPermissions
+    .filter((permission) => {
+      return permission.type === 1 && Boolean(permission.path)
+    })
+    .map<AuthPagePermission>(permission => ({
       code: permission.code,
-      title: permission.name,
-      path: permission.path ?? '/',
-      icon: menuIconMap[permission.code] ?? 'Setting'
+      path: permission.path ?? '/'
     }))
-}
+  const buttonPermissions = ownedPermissions
+    .filter((permission) => {
+      return permission.type === 2
+    })
+    .map(permission => permission.code)
 
-export async function canAccessPageByPath(user: AuthUser | undefined, rawPath: string) {
-  await ensurePermissionSeedData()
-
-  if (!user) {
-    return false
+  return {
+    menus,
+    pagePermissions,
+    buttonPermissions
   }
-
-  const requestPath = normalizePagePath(rawPath)
-  const userRoles = user.roles ?? []
-  const isSuperAdmin = userRoles.includes('super_admin')
-
-  // 页面访问控制也从 Permission + RolePermission 表查。
-  // 这样用户手动输入 /accounts 这种地址时，前端 route middleware 仍然会问后端数据库。
-  const pagePermissions = await prisma.permission.findMany({
-    where: {
-      type: 1,
-      path: {
-        not: null
-      }
-    },
-    include: {
-      rolePermissions: true
-    }
-  })
-
-  const matchedPermission = pagePermissions.find((permission) => {
-    return permission.path ? isPagePathMatched(permission.path, requestPath) : false
-  })
-
-  if (!matchedPermission) {
-    return false
-  }
-
-  if (isSuperAdmin) {
-    return true
-  }
-
-  return matchedPermission.rolePermissions.some(item => userRoles.includes(item.role))
 }
 
 export async function createPermission(input: CreatePermissionInput) {

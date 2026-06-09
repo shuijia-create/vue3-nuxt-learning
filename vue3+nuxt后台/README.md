@@ -51,19 +51,19 @@ app.vue
 components/SidebarMenu.vue
 ```
 
-但是菜单数据不是写死在前端文件里，而是来自：
+菜单数据不是写死在前端文件里，而是登录成功或刷新页面时由 getInfo 返回：
 
 ```text
-components/SidebarMenu.vue
-  ↓ 请求
-GET /api/menus
+GET /api/me
   ↓
 server/services/permissions.ts
   ↓ 查询
 permissions 表 + role_permissions 表
+  ↓
+返回 user、menus、pagePermissions、buttonPermissions
 ```
 
-也就是说，`SidebarMenu.vue` 只负责把后端返回的菜单渲染出来；真正决定“某个角色能不能看到某个页面”的地方是数据库里的权限表和角色权限表。
+也就是说，`SidebarMenu.vue` 只负责从 `stores/auth.ts` 读取菜单并渲染出来；真正决定“某个角色能不能看到某个页面”的地方是数据库里的权限表和角色权限表。
 
 顶部页面标签写在：
 
@@ -84,19 +84,17 @@ utils/admin-page-title.ts
 
 `el-menu` 上开启了 `router`，所以 `el-menu-item` 的 `index` 会被 Element Plus 当成路由地址处理。
 
-页面手动访问也要过数据库权限校验：
+页面手动访问也要过权限校验，但不是每次跳转都请求接口。刷新页面或登录时，`/api/me` 已经把当前用户拥有的页面路由权限返回给前端：
 
 ```text
 middleware/auth.global.ts
-  ↓ 调用
-GET /api/permissions/page-access?path=/accounts
-  ↓
-server/services/permissions.ts
-  ↓ 查询
-permissions 表 + role_permissions 表
+  ↓ 读取
+stores/auth.ts 里的 pagePermissions
+  ↓ 本地判断
+auth.canAccessPage('/accounts')
 ```
 
-这样用户直接在地址栏输入 `/accounts` 时，也不会靠前端文件判断权限，而是由后端拿当前登录用户的角色去数据库里查。
+这样用户直接在地址栏输入 `/accounts` 时，前端用后端返回的权限快照做页面跳转判断。真正的接口安全仍然在 `server/middleware/auth.ts` 和具体 API 里兜底，不能只靠前端隐藏菜单。
 
 ## 当前工单模块全栈链路
 
@@ -889,7 +887,7 @@ pages/login.vue
   负责登录表单、loading、错误提示、登录成功后的跳转。
 
 stores/auth.ts
-  只负责登录状态，例如 user、isLoggedIn、setUser、clearUser。
+  只负责登录状态和权限快照，例如 user、menus、pagePermissions、buttonPermissions、isLoggedIn。
 
 composables/use-auth.ts
   负责登录、退出、拉取当前用户这些认证用例，并在成功后更新 auth store。
@@ -923,7 +921,7 @@ export async function loginApi(form: LoginForm) {
 async function login(form: LoginForm) {
   const result = await loginApi(form)
 
-  authStore.setUser(result.user)
+  authStore.setAuthInfo(result)
 
   return result.user
 }
@@ -931,7 +929,7 @@ async function login(form: LoginForm) {
 
 再进一步，生产项目通常不建议前端 JavaScript 自己保存 token。更安全的方式是服务端通过 `Set-Cookie` 写入 `httpOnly` cookie，前端只通过 `/api/me` 获取当前用户，不能直接读写 token。
 
-当前代码已经把认证请求抽到 `utils/api/auth.ts`，把登录、退出、拉当前用户这些用例放到 `composables/use-auth.ts`，并改成 `httpOnly cookie` 模式。前端 store 不读写 token，也不发请求，只维护当前用户状态。
+当前代码已经把认证请求抽到 `utils/api/auth.ts`，把登录、退出、拉当前用户这些用例放到 `composables/use-auth.ts`，并改成 `httpOnly cookie` 模式。前端 store 不读写 token，也不发请求，只维护当前用户和权限快照。
 
 ### 1. 未登录访问后台页面
 
@@ -1000,7 +998,7 @@ setCookie(event, 'nuxt-admin-token', token, {
 })
 ```
 
-然后只返回安全的用户信息，不把 token 返回给前端 JavaScript。
+然后返回 getInfo 结构：`user`、`menus`、`pagePermissions`、`buttonPermissions`。token 不返回给前端 JavaScript。
 
 ### 3. 登录成功后进入后台
 
@@ -1048,7 +1046,7 @@ GET /api/me
 server/api/me.get.ts
 ```
 
-服务端会检查 cookie 里的 `nuxt-admin-token`。如果 token 不正确，返回 401；如果正确，返回当前用户信息。
+服务端会检查 cookie 里的 `nuxt-admin-token`。如果 token 不正确，返回 401；如果正确，返回当前用户信息、菜单、页面路由权限和按钮权限。
 
 这里有一个 Nuxt SSR 重点：
 

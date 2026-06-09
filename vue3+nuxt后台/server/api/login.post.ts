@@ -1,4 +1,5 @@
 import { authCookieName, createAuthSession } from '~/server/services/auth'
+import { getAuthPermissionSnapshotForUser } from '~/server/services/permissions'
 import { findUserByCredentials } from '~/server/services/users'
 import { decryptPassword } from '~/server/utils/password-encryption'
 
@@ -48,8 +49,12 @@ export default defineEventHandler(async (event) => {
     maxAge: 60 * 60 * 24
   })
 
-  // 5. 把用户信息返回给前端（token 已经在 cookie 里了，不需要在 body 里再传）
+  // 5. 登录成功后也返回 getInfo 快照，避免跳转后台后再补一次权限请求。
+  const permissionSnapshot = await getAuthPermissionSnapshotForUser(user)
+
+  // token 已经在 cookie 里了，不需要在 body 里再传。
   return {
-    user
+    user,
+    ...permissionSnapshot
   }
 })

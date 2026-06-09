@@ -1,3 +1,5 @@
+import type { MenuRouteItem } from '~/types/menu'
+
 export type LoginForm = {
   username: string
   password: string
@@ -15,13 +17,21 @@ export type AuthUser = {
   roles: string[]
 }
 
-export type LoginResponse = {
-  user: AuthUser
+export type AuthPagePermission = {
+  code: string
+  path: string
 }
 
-export type MeResponse = {
+export type AuthInfo = {
   user: AuthUser
+  menus: MenuRouteItem[]
+  pagePermissions: AuthPagePermission[]
+  buttonPermissions: string[]
 }
+
+export type LoginResponse = AuthInfo
+
+export type MeResponse = AuthInfo
 
 export type LogoutResponse = {
   ok: true

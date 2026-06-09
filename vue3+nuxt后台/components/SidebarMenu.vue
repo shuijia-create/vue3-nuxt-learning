@@ -9,11 +9,11 @@ import {
   Tickets,
   UserFilled
 } from '@element-plus/icons-vue'
-import type { MenuRouteItem } from '~/types/menu'
+import { useAuthStore } from '~/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
 
-const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 const iconMap = {
   ChatDotRound,
   DataAnalysis,
@@ -25,11 +25,7 @@ const iconMap = {
   UserFilled
 }
 
-const { data } = await useAsyncData('sidebar-menus', () => {
-  return requestFetch<{ list: MenuRouteItem[] }>('/api/menus')
-})
-
-const visibleMenus = computed(() => data.value?.list ?? [])
+const visibleMenus = computed(() => auth.menus)
 const activeMenu = computed(() => {
   const matchedMenu = visibleMenus.value.find((item) => {
     return route.path === item.path || route.path.startsWith(`${item.path}/`)

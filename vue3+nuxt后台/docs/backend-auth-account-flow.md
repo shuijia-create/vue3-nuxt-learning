@@ -11,9 +11,10 @@
 3. 后端用私钥解密密码，再去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
 4. 校验成功后，后端生成一个随机 token，写入 `httpOnly` cookie，不返回给前端 JavaScript。
 5. 浏览器后续请求接口时自动带上 cookie。
-6. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
-7. 创建账号时，只有 `super_admin` 可以调用 `POST /api/users`。
-8. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
+6. `POST /api/login` 和 `GET /api/me` 都会返回 getInfo：`user`、`menus`、`pagePermissions`、`buttonPermissions`。
+7. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
+8. 创建账号时，只有 `super_admin` 可以调用 `POST /api/users`。
+9. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
 
 ## 后端文件分别是干嘛的
 
@@ -121,13 +122,14 @@ await getAuthSessionUsername(token)
 POST /api/login
 ```
 
-它做五件事：
+它做六件事：
 
 1. 用 `readBody()` 读取前端传来的 `username` 和 `encryptedPassword`。
 2. 用服务端私钥解密出本次登录密码。
 3. 调用 `findUserByCredentials()` 查数据库并校验密码。
 4. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
-5. 用 `setCookie()` 把 token 写入 `httpOnly` cookie，只把安全的用户信息返回给前端。
+5. 用 `setCookie()` 把 token 写入 `httpOnly` cookie。
+6. 查询当前用户的菜单、页面路由权限和按钮权限，和安全用户信息一起返回给前端。
 
 返回格式大概是：
 
@@ -138,11 +140,14 @@ POST /api/login
     "username": "admin",
     "nickname": "管理员",
     "roles": ["super_admin"]
-  }
+  },
+  "menus": [],
+  "pagePermissions": [],
+  "buttonPermissions": []
 }
 ```
 
-注意：返回的 `user` 里没有 `passwordHash`。
+注意：返回的 `user` 里没有 `passwordHash`，也不会把 token 放进响应 body。
 
 ### `server/middleware/auth.ts`
 
@@ -173,6 +178,15 @@ GET /api/me
 ```
 
 它不自己查 token，因为 `server/middleware/auth.ts` 已经提前鉴权并把用户放到了 `event.context.currentUser`。
+
+它现在也是前端刷新页面时的 getInfo 接口，会返回：
+
+```text
+user
+menus
+pagePermissions
+buttonPermissions
+```
 
 ### `server/api/logout.post.ts`
 
@@ -257,9 +271,9 @@ server/services/auth.ts
 server/api/login.post.ts
   |
   | setCookie("nuxt-admin-token", token, { httpOnly: true })
-  | return { user }
+  | return { user, menus, pagePermissions, buttonPermissions }
   v
-浏览器自动保存 httpOnly cookie，前端 store 只保存 user
+浏览器自动保存 httpOnly cookie，前端 store 保存 user 和权限快照
 ```
 
 ## 后续接口怎么知道你是谁
@@ -336,11 +350,16 @@ POST /api/users
 当前页面访问链路是：
 
 ```text
+登录或刷新页面
+  -> GET /api/me
+  -> 返回 user、menus、pagePermissions、buttonPermissions
+  -> stores/auth.ts 缓存权限快照
 middleware/auth.global.ts
-  -> GET /api/permissions/page-access?path=/accounts
-  -> server/services/permissions.ts
-  -> 查询 permissions 表和 role_permissions 表
+  -> auth.canAccessPage('/accounts')
+  -> 前端本地判断是否允许进入页面
 ```
+
+这样页面跳转时不用每次再请求权限接口。
 
 接口访问还要继续在 API 层兜底：
 
@@ -363,7 +382,7 @@ if (!isSuperAdmin(event.context.currentUser)) {
 - 后端接口会统一鉴权。
 - 创建账号需要超级管理员。
 - 角色和权限已经落到 `roles`、`permissions`、`role_permissions` 表。
-- 菜单展示和页面访问都会通过后端读取权限表判断，不读取前端页面文件。
+- 登录和刷新时会通过后端读取权限表，返回菜单、页面路由权限和按钮权限；页面跳转时前端用本地权限快照判断。
 
 但它仍然可以继续升级：
 

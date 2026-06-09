@@ -15,7 +15,7 @@
 7. `server/services/users.ts`：查询 MySQL 用户，用 bcrypt 校验密码。
 8. `server/services/auth.ts`：Redis session、cookie 名、公开 API 白名单。
 9. `server/middleware/auth.ts`：服务端 API 真实鉴权。
-10. `middleware/auth.global.ts`：前端页面访问拦截和页面权限校验。
+10. `middleware/auth.global.ts`：前端页面访问拦截，并用本地权限快照校验页面。
 
 ## 当前架构决策
 
@@ -23,6 +23,7 @@
 - API client：前端使用 `utils/api/*` 封装 `$fetch`，页面不直接拼接口细节。
 - 登录态：使用 `httpOnly cookie + Redis session`，前端不保存 token。
 - 密码传输：前端 RSA-OAEP 公钥加密，后端私钥解密，数据库仍然只保存 bcrypt 哈希。
+- getInfo：`/api/login` 和 `/api/me` 都返回 `user`、`menus`、`pagePermissions`、`buttonPermissions`。
 - 权限边界：页面 middleware 负责跳转体验，服务端 middleware 和接口判断负责真正安全。
 
 ## 登录完整流程
@@ -68,11 +69,11 @@ server/services/auth.ts
   v
 server/api/login.post.ts
   setCookie("nuxt-admin-token", token, { httpOnly: true })
-  return { user }
+  return { user, menus, pagePermissions, buttonPermissions }
   |
   v
 composables/use-auth.ts
-  authStore.setUser(result.user)
+  authStore.setAuthInfo(result)
   |
   v
 pages/login.vue
@@ -85,6 +86,7 @@ pages/login.vue
 - 后端解密出的密码只在本次请求内存里使用。
 - 数据库里的 `users.password_hash` 仍然是 bcrypt 哈希。
 - token 不返回给前端 JavaScript，只写入 `httpOnly cookie`。
+- 菜单和页面权限不用登录后再单独请求，登录响应里已经带回来。
 
 ## 登录页负责什么
 
@@ -111,8 +113,8 @@ pages/login.vue
 
 它是认证用例层：
 
-- `login(form)`：调用 `loginApi(form)`，成功后把用户写入 Pinia。
-- `fetchCurrentUser()`：调用 `/api/me`，成功后更新用户状态；401 时清空用户。
+- `login(form)`：调用 `loginApi(form)`，成功后把 getInfo 写入 Pinia。
+- `fetchCurrentUser()`：调用 `/api/me`，成功后更新用户和权限快照；401 时清空用户。
 - `logout()`：调用后端退出接口，清空用户和页面标签，跳回登录页。
 
 这个文件连接“页面”和“API client”，但不关心后端怎么查数据库。
@@ -275,8 +277,10 @@ nuxt-admin-token=<token>
 
 - 未登录访问后台页面，跳到 `/login?redirect=原页面`。
 - 已登录访问 `/login`，跳到 `/dashboard` 或 redirect。
-- 已登录访问后台页面时，请求 `/api/permissions/page-access` 做页面权限校验。
+- 已登录访问后台页面时，用 `stores/auth.ts` 里缓存的 `pagePermissions` 做本地页面权限校验。
 - SSR 阶段请求 `/api/me` 时使用 `useRequestFetch()` 转发 cookie。
+
+注意：这里不再每次页面跳转都请求页面权限接口。页面权限、菜单路由和按钮权限都来自登录或刷新时的 getInfo。
 
 它和 `server/middleware/auth.ts` 的区别：
 
@@ -311,9 +315,9 @@ server/middleware/auth.ts
   v
 server/api/me.get.ts
   |
-  | return { user: event.context.currentUser }
+  | return { user, menus, pagePermissions, buttonPermissions }
   v
-authStore.setUser(user)
+authStore.setAuthInfo(result)
 ```
 
 如果 `/api/me` 返回 401：

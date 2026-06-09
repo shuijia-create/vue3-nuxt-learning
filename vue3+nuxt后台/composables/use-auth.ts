@@ -9,16 +9,20 @@ export function useAuth() {
   async function login(form: LoginForm) {
     const result = await loginApi(form)
 
-    authStore.setUser(result.user)
+    authStore.setAuthInfo(result)
 
     return result.user
   }
 
   async function fetchCurrentUser() {
+    if (authStore.authResolved && authStore.user) {
+      return authStore.user
+    }
+
     try {
       const result = await fetchMeApi()
 
-      authStore.setUser(result.user)
+      authStore.setAuthInfo(result)
 
       return result.user
     } catch (error) {
