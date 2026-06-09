@@ -3,20 +3,24 @@ import { Bell, Refresh, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationsStore } from '../stores/notifications'
+import { useAuth } from '~/composables/use-auth'
+import { useNotifications } from '~/composables/use-notifications'
 import type { Notification as SystemNotification } from '~/types/notification'
 
 const auth = useAuthStore()
 const notificationsStore = useNotificationsStore()
+const authActions = useAuth()
+const notificationActions = useNotifications()
 const route = useRoute()
 const notificationPanelVisible = ref(false)
 const notificationRef = ref<HTMLElement>()
 
-await callOnce('current-user', () => auth.fetchMe())
-await callOnce('current-notifications', () => notificationsStore.fetchNotifications())
+await callOnce('current-user', () => authActions.fetchCurrentUser())
+await callOnce('current-notifications', () => notificationActions.fetchNotifications())
 
 async function handleNotificationClick(notification: SystemNotification) {
   try {
-    await notificationsStore.markAsRead(notification.id)
+    await notificationActions.markAsRead(notification.id)
     notificationPanelVisible.value = false
 
     if (notification.targetPath) {
@@ -112,7 +116,7 @@ onBeforeUnmount(() => {
                   :icon="Refresh"
                   link
                   :loading="notificationsStore.pending"
-                  @click="notificationsStore.fetchNotifications()"
+                  @click="notificationActions.fetchNotifications()"
                 >
                   刷新
                 </el-button>
@@ -149,7 +153,7 @@ onBeforeUnmount(() => {
           </div>
 
           <span class="user-name">{{ auth.user?.nickname || '管理员' }}</span>
-          <el-button :icon="SwitchButton" plain @click="auth.logout">
+          <el-button :icon="SwitchButton" plain @click="authActions.logout">
             退出登录
           </el-button>
         </div>

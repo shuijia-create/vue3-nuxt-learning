@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useAuth } from '~/composables/use-auth'
 
 definePageMeta({
   layout: 'auth'
@@ -11,7 +11,7 @@ useHead({
 })
 
 const route = useRoute()
-const auth = useAuthStore()
+const authActions = useAuth()
 
 const formRef = ref()
 const loading = ref(false)
@@ -34,7 +34,7 @@ async function handleLogin() {
 
   loading.value = true
   try {
-    await auth.login(form)
+    await authActions.login(form)
 
     const redirect = typeof route.query.redirect === 'string'
       ? route.query.redirect

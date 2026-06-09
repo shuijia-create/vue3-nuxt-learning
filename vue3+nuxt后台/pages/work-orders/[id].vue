@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import type { WorkOrder, WorkOrderStatus } from '~/types/work-order'
+import type { WorkOrderStatus } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
-import { useNotificationsStore } from '~/stores/notifications'
+import { useNotifications } from '~/composables/use-notifications'
+import { useWorkOrders } from '~/composables/use-work-orders'
+import { getApiErrorMessage } from '~/utils/api/errors'
 
 definePageMeta({
   layout: 'admin'
@@ -9,23 +11,17 @@ definePageMeta({
 
 const route = useRoute()
 const id = String(route.params.id ?? '')
-
-type WorkOrderDetailResponse = {
-  code: number
-  data: WorkOrder
-}
-
-const workOrder = ref<WorkOrder>()
-const pending = ref(false)
-const error = ref(false)
-const notificationsStore = useNotificationsStore()
+const notificationActions = useNotifications()
+const workOrderActions = useWorkOrders()
+const { data, pending, error, refresh } = await useAsyncData(`work-order-${id}`, () => {
+  return workOrderActions.fetchWorkOrderDetail(id)
+})
+const workOrder = computed(() => data.value?.data)
 const processRecords = computed(() => workOrder.value?.processRecords ?? [])
 const hasAiSuggestion = computed(() => {
   return workOrder.value?.source === 'AI 草稿' && !!workOrder.value.aiSuggestion
 })
 const updatingStatus = ref(false)
-const statusApi = '/api/work-orders/status' as string
-const detailApi = `/api/work-orders/detail/${id}`
 
 const statusTypeMap: Record<WorkOrderStatus, 'warning' | 'primary' | 'danger'> = {
   待处理: 'warning',
@@ -58,20 +54,6 @@ useHead(() => ({
     : '工单详情 - Nuxt 后台学习项目'
 }))
 
-async function fetchWorkOrderDetail() {
-  pending.value = true
-  error.value = false
-
-  try {
-    const res = await $fetch<WorkOrderDetailResponse>(detailApi)
-    workOrder.value = res.data
-  } catch {
-    error.value = true
-  } finally {
-    pending.value = false
-  }
-}
-
 async function handleChangeStatus(status: WorkOrderStatus) {
   if (!workOrder.value) {
     return
@@ -80,32 +62,20 @@ async function handleChangeStatus(status: WorkOrderStatus) {
   updatingStatus.value = true
 
   try {
-    const res: { code: number, message?: string } = await $fetch(statusApi, {
-      method: 'POST',
-      body: {
-        id: workOrder.value.id,
-        status
-      }
+    await workOrderActions.changeWorkOrderStatus({
+      id: workOrder.value.id,
+      status
     })
 
-    if (res.code !== 200) {
-      ElMessage.error(res.message || '状态更新失败')
-      return
-    }
-
     ElMessage.success('工单状态已更新')
-    await notificationsStore.fetchNotifications().catch(() => undefined)
-    await fetchWorkOrderDetail()
-  } catch {
-    ElMessage.error('状态更新失败，请确认后端接口已实现')
+    await notificationActions.fetchNotifications().catch(() => undefined)
+    await refresh()
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, '状态更新失败'))
   } finally {
     updatingStatus.value = false
   }
 }
-
-onMounted(() => {
-  fetchWorkOrderDetail()
-})
 </script>
 
 <template>

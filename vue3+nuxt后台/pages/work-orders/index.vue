@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
-import type { WorkOrder, WorkOrderStatus, WorkOrderType } from '~/types/work-order'
+import type { WorkOrderStatus, WorkOrderType } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
-import { useNotificationsStore } from '~/stores/notifications'
+import { useNotifications } from '~/composables/use-notifications'
+import { useWorkOrders } from '~/composables/use-work-orders'
+import { getApiErrorMessage } from '~/utils/api/errors'
 
 definePageMeta({
   layout: 'admin'
@@ -28,16 +30,16 @@ const filterForm = reactive<WorkOrderFilterForm>({
   type: '',
   status: ''
 })
-const notificationsStore = useNotificationsStore()
+const notificationActions = useNotifications()
+const workOrderActions = useWorkOrders()
 
 const requestQuery = ref({
   type: undefined as WorkOrderType | undefined,
   status: undefined as WorkOrderStatus | undefined
 })
 
-const { data, pending, error, refresh } = await useFetch<{ list: WorkOrder[] }>('/api/work-orders', {
-  query: requestQuery,
-  watch: false
+const { data, pending, error, refresh } = await useAsyncData('work-orders', () => {
+  return workOrderActions.listWorkOrders(requestQuery.value)
 })
 
 const createDialogVisible = ref(false)
@@ -169,25 +171,21 @@ function closeCreateDialog() {
 async function handleCreateSubmit() {
   await createFormRef.value?.validate()
 
-  const res: { code: number, message?: string } = await $fetch('/api/work-orders/add', {
-    method: 'POST',
-    body: {
+  try {
+    await workOrderActions.createWorkOrder({
       title: createForm.title,
-      type: createForm.type,
+      type: createForm.type as WorkOrderType,
       submitter: createForm.submitter,
       description: createForm.description
-    }
-  })
+    })
 
-  if (res.code !== 200) {
-    ElMessage.error(res.message || '操作失败')
-    return
+    ElMessage.success('工单创建成功')
+    closeCreateDialog()
+    await notificationActions.fetchNotifications().catch(() => undefined)
+    await refresh()
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
   }
-
-  ElMessage.success('工单创建成功')
-  closeCreateDialog()
-  await notificationsStore.fetchNotifications().catch(() => undefined)
-  await refresh()
 }
 </script>
 
@@ -197,7 +195,7 @@ async function handleCreateSubmit() {
       <div>
         <h1 class="page-title">工单列表</h1>
         <p class="page-desc">
-          页面进入 /work-orders 后，通过 GET /api/work-orders 读取 mock 数据，再交给 BaseTable 渲染。
+          页面只处理筛选、弹窗和表格渲染，请求流程统一交给 useWorkOrders。
         </p>
       </div>
 

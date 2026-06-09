@@ -1,6 +1,6 @@
-import { workOrders } from '~/server/data/work-orders'
-import { createOperationLog } from '~/server/services/operation-logs'
-import { createWorkOrderStatusChangedNotification } from '~/server/services/notifications'
+import type { AuthUser } from '~/server/services/users'
+import { changeWorkOrderStatus } from '~/server/services/work-orders'
+import { throwServiceError } from '~/server/utils/service-error'
 import type { WorkOrderStatus } from '~/types/work-order'
 
 type ChangeStatusBody = {
@@ -8,86 +8,21 @@ type ChangeStatusBody = {
   status?: WorkOrderStatus
 }
 
-type CurrentUser = {
-  id?: number
-  nickname?: string
-  username?: string
-}
-
-const workOrderStatuses: WorkOrderStatus[] = ['待处理', '处理中', '待确认']
-
-function isWorkOrderStatus(value: unknown): value is WorkOrderStatus {
-  return typeof value === 'string' && workOrderStatuses.includes(value as WorkOrderStatus)
-}
-
+// POST /api/work-orders/status
+// API 层只接收“要把哪张工单改到什么状态”，不在这里判断流转规则。
 export default defineEventHandler(async (event) => {
   const body = await readBody<ChangeStatusBody>(event)
-  const { id, status } = body
-  const currentUser = event.context.currentUser as CurrentUser | undefined
+  // 状态流转必须知道操作人，用于写操作日志和站内通知。
+  const currentUser = event.context.currentUser as AuthUser | undefined
 
-  if (!id || !isWorkOrderStatus(status)) {
+  try {
     return {
-      code: 400,
-      message: '工单状态参数不正确',
-      data: null
+      code: 200,
+      message: '工单状态更新成功',
+      data: await changeWorkOrderStatus(body, currentUser)
     }
-  }
-
-  const order = workOrders.find(order => order.id === id)
-
-  if (!order) {
-    return {
-      code: 404,
-      message: '工单不存在',
-      data: null
-    }
-  }
-
-  if (order.status === '待处理' && status !== '处理中') {
-    return {
-      code: 400,
-      message: '待处理工单只能流转到处理中',
-      data: null
-    }
-  }
-
-  if (order.status === '处理中' && status !== '待确认') {
-    return {
-      code: 400,
-      message: '处理中工单只能流转到待确认',
-      data: null
-    }
-  }
-
-  const oldStatus = order.status
-  const operator = currentUser?.nickname || currentUser?.username || '系统用户'
-
-  order.status = status
-  order.processRecords ??= []
-  order.processRecords.unshift({
-    id: String(Date.now()),
-    action: '状态流转',
-    operator,
-    createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
-    remark: `工单状态由“${oldStatus}”变更为“${status}”。`
-  })
-  createOperationLog({
-    module: '工单',
-    action: '状态流转',
-    operator,
-    target: order.code,
-    detail: `工单“${order.title}”状态由“${oldStatus}”变更为“${status}”。`
-  })
-  createWorkOrderStatusChangedNotification({
-    recipientUserId: currentUser?.id ?? 1,
-    workOrder: order,
-    oldStatus,
-    newStatus: status
-  })
-
-  return {
-    code: 200,
-    message: '工单状态更新成功',
-    data: order
+  } catch (error) {
+    // service 会判断“待处理只能到处理中”等规则，失败时从这里返回错误。
+    throwServiceError(error)
   }
 })

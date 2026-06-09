@@ -1,15 +1,19 @@
-import { workOrders } from '~/server/data/work-orders'
-export default defineEventHandler((event) => {
-  const id = getRouterParam(event, 'id')
-  const workOrder = workOrders.find(workOrder => workOrder.id === id)
-  if (!workOrder) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: '工单不存在'
-    })
-  }
-  return {
-    data: workOrder,
-    code: 200
+import { getWorkOrderDetail } from '~/server/services/work-orders'
+import { throwServiceError } from '~/server/utils/service-error'
+
+// GET /api/work-orders/detail/:id
+// 动态路由参数只在 API 层读取，参数是否合法由 service 再判断。
+export default defineEventHandler(async (event) => {
+  // 文件名 [id].get.ts 对应这里的 getRouterParam(event, 'id')。
+  const id = getRouterParam(event, 'id') ?? ''
+
+  try {
+    return {
+      data: await getWorkOrderDetail(id),
+      code: 200
+    }
+  } catch (error) {
+    // 找不到工单时，service 会抛 404，这里负责转成 Nuxt 错误响应。
+    throwServiceError(error)
   }
 })

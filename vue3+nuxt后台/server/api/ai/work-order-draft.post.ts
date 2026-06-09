@@ -9,6 +9,8 @@ type GenerateDraftBody = {
 
 type AiProvider = 'qwen' | 'mock'
 
+// 后端用 zod 校验 AI 返回值。即使提示词要求 AI 返回 JSON，也不能直接相信模型输出。
+// 这里明确规定草稿必须包含哪些字段，以及每个字段允许哪些值。
 const workOrderDraftSchema = z.object({
   title: z.string().min(1),
   type: z.enum(['设备故障', 'IT 问题', '质量异常']),
@@ -18,8 +20,12 @@ const workOrderDraftSchema = z.object({
   missingInfo: z.array(z.string().min(1))
 })
 
+// AI 有时会返回 ```json 代码块或夹带空白字符。
+// 这个函数负责从模型文本里提取 JSON 对象，并用 zod 转成稳定的 WorkOrderDraft。
 function parseDraftText(text: string): WorkOrderDraft {
+  // 先去掉常见 Markdown 代码块包裹，降低模型输出格式波动带来的解析失败。
   const jsonText = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '')
+  // 再定位第一个 { 和最后一个 }，只截取 JSON 对象主体。
   const jsonStart = jsonText.indexOf('{')
   const jsonEnd = jsonText.lastIndexOf('}')
 
@@ -29,9 +35,11 @@ function parseDraftText(text: string): WorkOrderDraft {
 
   const parsed = JSON.parse(jsonText.slice(jsonStart, jsonEnd + 1))
 
+  // parse 只能证明是 JSON，zod 才能证明字段结构和业务枚举符合要求。
   return workOrderDraftSchema.parse(parsed)
 }
 
+// 没配置 AI Key 时使用本地 mock，保证学习项目不依赖外部服务也能跑完整流程。
 function createMockDraft(description: string): WorkOrderDraft {
   return {
     title: description.slice(0, 24),
@@ -48,7 +56,9 @@ function createMockDraft(description: string): WorkOrderDraft {
   }
 }
 
+// 调用通义千问的 OpenAI 兼容接口。这个方法只在服务端执行，浏览器看不到 apiKey。
 async function generateDraftWithQwen(description: string, apiKey: string, baseURL: string, model: string): Promise<WorkOrderDraft> {
+  // createOpenAI 只是创建模型客户端，真正请求发生在 generateText。
   const qwen = createOpenAI({
     apiKey,
     baseURL,
@@ -56,6 +66,7 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
   })
 
   try {
+    // system 负责限制 AI 的角色和输出格式；prompt 负责传入本次员工描述。
     const { text } = await generateText({
       model: qwen(model),
       system: [
@@ -75,8 +86,10 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
       ].join('\n')
     })
 
+    // 不直接把 text 返回给前端，而是先解析成稳定结构。
     return parseDraftText(text)
   } catch (error) {
+    // 服务端记录原始错误，方便排查 Key、模型名、网络或 JSON 格式问题。
     console.error('[AI_WORK_ORDER_DRAFT_ERROR]', error)
 
     throw createError({
@@ -86,10 +99,13 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
   }
 }
 
+// POST /api/ai/work-order-draft
+// 前端只提交员工问题描述，后端决定调用真实 AI 还是本地 mock。
 export default defineEventHandler(async (event) => {
   const body = await readBody<GenerateDraftBody>(event)
   const description = body.description?.trim()
 
+  // 空描述没有业务意义，提前返回 400，避免浪费 AI 调用成本。
   if (!description) {
     throw createError({
       statusCode: 400,
@@ -97,15 +113,18 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // AI 配置来自 nuxt.config.ts 的 runtimeConfig，真实密钥只在服务端可见。
   const config = useRuntimeConfig()
   const apiKey = String(config.aiApiKey || '')
   const baseURL = String(config.aiBaseUrl || 'https://dashscope.aliyuncs.com/compatible-mode/v1')
   const model = String(config.aiModel || 'qwen-plus')
+  // 有 apiKey 就调用真实千问，没有就走 mock，保证本地学习时接口永远可用。
   const draft = apiKey
     ? await generateDraftWithQwen(description, apiKey, baseURL, model)
     : createMockDraft(description)
   const provider: AiProvider = apiKey ? 'qwen' : 'mock'
 
+  // provider 返回给页面用于展示“千问生成”还是“本地 mock 生成”。
   return {
     draft,
     provider

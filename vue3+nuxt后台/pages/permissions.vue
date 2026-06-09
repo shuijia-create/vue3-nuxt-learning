@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { PermissionTreeItem, PermissionType, PermissionsResponse } from '~/types/permission'
 import { useAuthStore } from '~/stores/auth'
+import { useAuth } from '~/composables/use-auth'
 
 definePageMeta({
   layout: 'admin'
@@ -20,8 +21,9 @@ type PermissionQueryForm = {
 }
 
 const auth = useAuthStore()
+const authActions = useAuth()
 
-await callOnce('current-user', () => auth.fetchMe())
+await callOnce('current-user', () => authActions.fetchCurrentUser())
 
 const isSuperAdmin = computed(() => auth.user?.roles.includes('super_admin') ?? false)
 const requestFetch = import.meta.server ? useRequestFetch() : $fetch

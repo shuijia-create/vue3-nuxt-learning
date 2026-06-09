@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkOrder } from '~/types/work-order'
+import { useWorkOrders } from '~/composables/use-work-orders'
 
 definePageMeta({
   layout: 'admin'
@@ -9,7 +9,10 @@ useHead({
   title: '工作台 - Nuxt 后台学习项目'
 })
 
-const { data } = await useFetch<{ list: WorkOrder[] }>('/api/work-orders')
+const workOrderActions = useWorkOrders()
+const { data } = await useAsyncData('dashboard-work-orders', () => {
+  return workOrderActions.listWorkOrders()
+})
 
 const workOrders = computed(() => data.value?.list ?? [])
 const pendingCount = computed(() => workOrders.value.filter((item) => item.status === '待处理').length)
@@ -41,7 +44,7 @@ const reviewCount = computed(() => workOrders.value.filter((item) => item.status
     <el-card class="intro-card" shadow="never">
       <template #header>今日学习链路</template>
       <div class="learning-note">
-        当前阶段先用 mock 工单证明流程成立：页面通过 server/api 获取数据，后续再补新建工单、AI 草稿和数据库持久化。
+        当前工单链路已经切到数据库：页面通过 useWorkOrders 进入 API client，再到 server service 和 Prisma。
       </div>
     </el-card>
 
