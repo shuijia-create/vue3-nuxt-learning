@@ -6,13 +6,14 @@
 
 当前项目的后端逻辑是：
 
-1. 前端调用 `POST /api/login`，提交用户名和密码。
-2. 后端去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
-3. 校验成功后，后端生成一个随机 token，写入 `httpOnly` cookie，不返回给前端 JavaScript。
-4. 浏览器后续请求接口时自动带上 cookie。
-5. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
-6. 创建账号时，只有 `super_admin` 可以调用 `POST /api/users`。
-7. 新账号密码写入数据库前会先变成 bcrypt 哈希，不会保存明文密码。
+1. 前端先调用 `GET /api/auth/password-key` 获取 RSA 公钥。
+2. 前端用公钥把密码加密成 `encryptedPassword`，再调用 `POST /api/login`。
+3. 后端用私钥解密密码，再去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
+4. 校验成功后，后端生成一个随机 token，写入 `httpOnly` cookie，不返回给前端 JavaScript。
+5. 浏览器后续请求接口时自动带上 cookie。
+6. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
+7. 创建账号时，只有 `super_admin` 可以调用 `POST /api/users`。
+8. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
 
 ## 后端文件分别是干嘛的
 
@@ -52,6 +53,17 @@ import { prisma } from '~/server/utils/prisma'
 
 真实项目里不要存“可解密密码”，而是存单向哈希。也就是说，数据库里的 `password_hash` 不能还原成原密码，只能用来校验。
 
+当前项目的请求体不会直接传 `password`，而是传 `encryptedPassword`。后端解密后得到的原始密码只存在于本次请求内存里，用完就结束；数据库仍然只保存 bcrypt 哈希。
+
+### `server/utils/password-encryption.ts`
+
+这是密码传输加密工具。
+
+- `getPasswordPublicKey()`：返回前端加密用的 RSA 公钥。
+- `decryptPassword(encryptedPassword)`：后端用私钥解密前端提交的密文。
+
+本地学习时，如果没有配置密钥，服务端会自动生成内存里的 RSA 密钥对。生产环境应该通过 `PASSWORD_PUBLIC_KEY` 和 `PASSWORD_PRIVATE_KEY` 配置固定密钥，避免多实例或重启后密钥不一致。
+
 ### `server/services/users.ts`
 
 这是用户业务逻辑层。它不直接处理 HTTP 请求，而是提供给接口调用。
@@ -65,7 +77,7 @@ import { prisma } from '~/server/utils/prisma'
 - `isSuperAdmin(user)`：判断当前用户是不是超级管理员。
 - `isUserRole(role)`：判断前端传来的角色是不是合法角色。
 
-### `server/data/auth.ts`
+### `server/services/auth.ts`
 
 这是登录 token 和 session 的存储文件。
 
@@ -109,12 +121,13 @@ await getAuthSessionUsername(token)
 POST /api/login
 ```
 
-它做四件事：
+它做五件事：
 
-1. 用 `readBody()` 读取前端传来的 `username` 和 `password`。
-2. 调用 `findUserByCredentials()` 查数据库并校验密码。
-3. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
-4. 用 `setCookie()` 把 token 写入 `httpOnly` cookie，只把安全的用户信息返回给前端。
+1. 用 `readBody()` 读取前端传来的 `username` 和 `encryptedPassword`。
+2. 用服务端私钥解密出本次登录密码。
+3. 调用 `findUserByCredentials()` 查数据库并校验密码。
+4. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
+5. 用 `setCookie()` 把 token 写入 `httpOnly` cookie，只把安全的用户信息返回给前端。
 
 返回格式大概是：
 
@@ -140,7 +153,7 @@ POST /api/login
 它的流程是：
 
 1. 从 cookie 读取 `nuxt-admin-token`。
-2. 用 token 去 `server/data/auth.ts` 里找 username。
+2. 用 token 去 `server/services/auth.ts` 里找 username。
 3. 找不到 username，说明没登录，返回 401。
 4. 找到 username 后，调用 `findAuthUserByUsername()` 重新查数据库。
 5. 把查到的用户写入 `event.context.currentUser`。
@@ -197,23 +210,34 @@ POST /api/users
 它会校验：
 
 - 用户名格式是否合法。
-- 密码是否至少 6 位。
+- `encryptedPassword` 是否能被服务端私钥解密。
+- 解密后的密码是否至少 6 位。
 - 昵称是否为空。
 - 角色是否只能是 `admin` 或 `super_admin`。
 - 用户名是否已经存在。
 
-校验通过后，调用 `createUserAccount()` 写入数据库。真正写入前，密码会先变成 bcrypt 哈希。
+校验通过后，调用 `createUserAccount()` 写入数据库。真正写入前，解密后的密码会先变成 bcrypt 哈希。
 
 ## 登录写入 httpOnly cookie 的完整流程
 
 ```text
 浏览器登录页
   |
+  | GET /api/auth/password-key
+  | 返回 RSA publicKey
+  v
+utils/password-encryption.ts
+  |
+  | encryptPasswordForRequest("123456")
+  v
+浏览器登录页
+  |
   | POST /api/login
-  | body: { username: "admin", password: "123456" }
+  | body: { username: "admin", encryptedPassword: "..." }
   v
 server/api/login.post.ts
   |
+  | decryptPassword(encryptedPassword)
   | 调用 findUserByCredentials()
   v
 server/services/users.ts
@@ -225,7 +249,7 @@ MySQL users 表
   |
   | 密码匹配成功
   v
-server/data/auth.ts
+server/services/auth.ts
   |
   | createAuthSession(username)
   | 生成 token，并保存 token -> username 到 Redis
@@ -269,8 +293,13 @@ event.context.currentUser
 ```text
 超级管理员打开 /accounts
   |
+  | GET /api/auth/password-key
+  | 用 publicKey 加密初始密码
+  v
+账号管理页
+  |
   | POST /api/users
-  | body: { username, password, nickname, role }
+  | body: { username, encryptedPassword, nickname, role }
   v
 server/middleware/auth.ts
   |
@@ -280,7 +309,8 @@ server/middleware/auth.ts
 server/api/users/index.post.ts
   |
   | isSuperAdmin(currentUser)
-  | 校验 username/password/nickname/role
+  | decryptPassword(encryptedPassword)
+  | 校验 username/解密后的密码长度/nickname/role
   | 查询 username 是否已存在
   v
 server/services/users.ts
@@ -327,6 +357,7 @@ if (!isSuperAdmin(event.context.currentUser)) {
 当前项目已经做到：
 
 - 密码用 bcrypt 哈希保存。
+- 除登录校验外，服务端查询用户时不再读取 `passwordHash`。
 - token 是随机生成的。
 - token 会写入 cookie。
 - 后端接口会统一鉴权。

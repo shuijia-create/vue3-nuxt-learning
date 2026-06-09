@@ -51,7 +51,7 @@ session：
 核心文件是：
 
 ```text
-server/data/auth.ts
+server/services/auth.ts
 ```
 
 这里现在只做一件事：

@@ -1,13 +1,13 @@
 import { fetchMeApi, isUnauthorizedError, loginApi, logoutApi } from '~/utils/api/auth'
 import { useAuthStore } from '~/stores/auth'
 import { usePageTabsStore } from '~/stores/page-tabs'
-import type { LoginPayload } from '~/types/auth'
+import type { LoginForm } from '~/types/auth'
 
 export function useAuth() {
   const authStore = useAuthStore()
 
-  async function login(payload: LoginPayload) {
-    const result = await loginApi(payload)
+  async function login(form: LoginForm) {
+    const result = await loginApi(form)
 
     authStore.setUser(result.user)
 

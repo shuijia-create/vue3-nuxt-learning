@@ -1,4 +1,4 @@
-import { authCookieName, deleteAuthSession } from '~/server/data/auth'
+import { authCookieName, deleteAuthSession } from '~/server/services/auth'
 
 export default defineEventHandler(async (event) => {
   const token = getCookie(event, authCookieName)

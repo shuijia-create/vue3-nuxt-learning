@@ -8,7 +8,7 @@
 页面 -> composable -> API client -> server/api -> service -> Prisma DB
 ```
 
-工单模块现在不再从 `server/data/work-orders.ts` 的内存数组读写数据。列表、新增、详情、状态流转都会进入 MySQL 的 `work_orders` 表；通知进入 `notifications` 表；操作日志进入 `operation_logs` 表。
+工单模块现在不再从旧的内存 mock 文件读写数据。列表、新增、详情、状态流转都会进入 MySQL 的 `work_orders` 表；通知进入 `notifications` 表；操作日志进入 `operation_logs` 表。
 
 ## 每层负责什么
 

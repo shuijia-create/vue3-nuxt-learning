@@ -122,8 +122,8 @@ AI 助手
 建议目录：
 
 ```text
-server/data/factory-docs.ts
-server/data/work-orders.ts
+server/mock/factory-docs.ts
+server/mock/work-orders.ts
 server/types/work-order.ts
 server/types/ai.ts
 ```

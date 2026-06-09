@@ -9,7 +9,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
   const authActions = useAuth()
   const isLoginPage = to.path === '/login'
-  const currentUser = auth.user ?? await authActions.fetchCurrentUser()
+  // 白名单页面（登录页、首页）不需要检查登录态，省掉一次不必要的 /api/me 请求。
+  const currentUser = whiteList.includes(to.path)
+    ? (auth.user ?? null)
+    : (auth.user ?? await authActions.fetchCurrentUser())
 
   if (!currentUser && !whiteList.includes(to.path)) {
     return navigateTo({

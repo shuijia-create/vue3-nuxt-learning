@@ -1,18 +1,30 @@
-import { authCookieName, createAuthSession } from '~/server/data/auth'
+import { authCookieName, createAuthSession } from '~/server/services/auth'
 import { findUserByCredentials } from '~/server/services/users'
+import { decryptPassword } from '~/server/utils/password-encryption'
 
 type LoginBody = {
   username?: string
-  password?: string
+  encryptedPassword?: string
 }
 
 export default defineEventHandler(async (event) => {
-  // 1. 从请求体取出用户提交的用户名和密码
+  // 1. 从请求体取出用户名和加密后的密码；请求里不传原始明文密码。
   const body = await readBody<LoginBody>(event)
   const username = body.username?.trim()
-  const password = body.password ?? ''
+  const encryptedPassword = body.encryptedPassword ?? ''
 
-  // 2. 用用户名 + 密码去数据库匹配，查不到说明凭证不对
+  let password = ''
+
+  try {
+    password = encryptedPassword ? decryptPassword(encryptedPassword) : ''
+  } catch {
+    throw createError({
+      statusCode: 400,
+      statusMessage: '密码加密数据不正确'
+    })
+  }
+
+  // 2. 用解密后的密码去数据库匹配。密码只存在于本次服务端请求内存里，不写库、不返回。
   const user = username
     ? await findUserByCredentials(username, password)
     : null

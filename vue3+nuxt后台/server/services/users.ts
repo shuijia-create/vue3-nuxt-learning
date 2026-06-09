@@ -21,10 +21,28 @@ export type UserListItem = AuthUser & {
 
 type CreateUserInput = {
   username: string
+  // 这里是后端私钥解密后的原始密码，只在本次请求内存里用于生成 bcrypt 哈希。
   password: string
   nickname: string
   role: string
 }
+
+const authUserSelect = {
+  id: true,
+  username: true,
+  nickname: true,
+  role: true
+} as const
+
+const credentialUserSelect = {
+  ...authUserSelect,
+  passwordHash: true
+} as const
+
+const userListSelect = {
+  ...authUserSelect,
+  createdAt: true
+} as const
 
 // 把数据库里的 User 记录转换成前端需要的登录用户信息。
 // 数据库里现在只有一个 role 字符串，前端沿用之前的 roles 数组格式，所以这里包成数组。
@@ -51,14 +69,16 @@ export function isSuperAdmin(user: AuthUser | undefined) {
   return Boolean(user?.roles.includes('super_admin'))
 }
 
-// 登录接口使用：根据用户名查 users 表，再校验用户输入的密码。
+// 登录接口使用：根据用户名查 users 表，再校验后端解密出的密码。
 // 登录时不应该插入用户；用户应该提前存在数据库里，这里只负责“查找 + 校验”。
 export async function findUserByCredentials(username: string, password: string) {
   // username 在 schema.prisma 里是 @unique，所以可以用 findUnique 精准查一条。
   const user = await prisma.user.findUnique({
     where: {
       username
-    }
+    },
+    // 只有登录校验需要读取 passwordHash；其他查询都不应该把密码哈希带出数据库。
+    select: credentialUserSelect
   })
 
   // 查不到用户，或者密码哈希对不上，都统一返回 null。
@@ -77,7 +97,8 @@ export async function findAuthUserByUsername(username: string) {
   const user = await prisma.user.findUnique({
     where: {
       username
-    }
+    },
+    select: authUserSelect
   })
 
   // 查到就转换成 AuthUser；查不到返回 null，让 middleware 返回 401。
@@ -87,6 +108,7 @@ export async function findAuthUserByUsername(username: string) {
 export async function listUsers() {
   // 账号列表只读 users 表，不返回 passwordHash。
   const users = await prisma.user.findMany({
+    select: userListSelect,
     orderBy: {
       id: 'asc'
     }
@@ -96,7 +118,7 @@ export async function listUsers() {
 }
 
 export async function createUserAccount(input: CreateUserInput) {
-  // 写入数据库前必须先把明文密码变成 bcrypt 哈希。
+  // 写入数据库前必须先把解密后的密码变成 bcrypt 哈希。
   // 数据库永远只保存 passwordHash，不保存用户输入的原始密码。
   const passwordHash = await hashPassword(input.password)
 
@@ -107,7 +129,8 @@ export async function createUserAccount(input: CreateUserInput) {
       passwordHash,
       nickname: input.nickname,
       role: input.role
-    }
+    },
+    select: userListSelect
   })
 
   return toUserListItem(user)
@@ -120,7 +143,8 @@ export async function updateUserRole(id: number, role: string) {
     },
     data: {
       role
-    }
+    },
+    select: userListSelect
   })
 
   return toUserListItem(user)

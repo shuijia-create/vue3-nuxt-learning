@@ -276,7 +276,7 @@ nuxt-admin:session:<token>
 ## 当前项目相关文件
 
 ```text
-server/data/auth.ts
+server/services/auth.ts
   Redis 连接和 session 读写逻辑
 
 server/api/login.post.ts

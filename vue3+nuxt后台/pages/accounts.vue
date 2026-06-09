@@ -5,6 +5,7 @@ import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { RoleListItem } from '~/types/role'
 import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/use-auth'
+import { encryptPasswordForRequest } from '~/utils/password-encryption'
 
 definePageMeta({
   layout: 'admin'
@@ -232,9 +233,16 @@ async function handleCreateAccount() {
 
   creating.value = true
   try {
+    const encryptedPassword = await encryptPasswordForRequest(createForm.password)
+
     await $fetch('/api/users', {
       method: 'POST',
-      body: createForm
+      body: {
+        username: createForm.username,
+        nickname: createForm.nickname,
+        encryptedPassword,
+        role: createForm.role
+      }
     })
 
     ElMessage.success('账号创建成功')

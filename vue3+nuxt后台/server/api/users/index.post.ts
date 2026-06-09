@@ -4,10 +4,11 @@ import {
   isSuperAdmin
 } from '~/server/services/users'
 import { roleExists } from '~/server/services/roles'
+import { decryptPassword } from '~/server/utils/password-encryption'
 
 type CreateUserBody = {
   username?: string
-  password?: string
+  encryptedPassword?: string
   nickname?: string
   role?: string
 }
@@ -27,9 +28,20 @@ export default defineEventHandler(async (event) => {
   // 读取前端表单提交的数据，并统一 trim，避免用户名和昵称前后带空格。
   const body = await readBody<CreateUserBody>(event)
   const username = body.username?.trim() ?? ''
-  const password = body.password ?? ''
+  const encryptedPassword = body.encryptedPassword ?? ''
   const nickname = body.nickname?.trim() ?? ''
   const role = body.role ?? 'admin'
+
+  let password = ''
+
+  try {
+    password = encryptedPassword ? decryptPassword(encryptedPassword) : ''
+  } catch {
+    throw createError({
+      statusCode: 400,
+      statusMessage: '密码加密数据不正确'
+    })
+  }
 
   // 用户名校验放在服务端，前端校验只是体验，不能当安全边界。
   if (!usernamePattern.test(username)) {
@@ -39,7 +51,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 初始密码可以以后再做强度规则；当前先保证不能太短。
+  // 后端解密后再校验长度；请求体里不会出现原始明文密码。
   if (password.length < 6) {
     throw createError({
       statusCode: 400,
@@ -73,7 +85,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 真正写数据库在 service 层完成：service 会先 hash 密码，再 create users 记录。
+  // 真正写数据库在 service 层完成：service 会先 hash 解密后的密码，再 create users 记录。
   const user = await createUserAccount({
     username,
     password,

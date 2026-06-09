@@ -401,20 +401,14 @@ defineStore 里的 ref  可以给多个组件共用
   ↓ useFetch('/api/work-orders')
 server/api/work-orders/index.get.ts
   ↓ 读取 mock 数据
-server/data/work-orders.ts
+早期内存 mock 数组（现已删除）
   ↓ 返回 list
 BaseTable 渲染表格
 ```
 
 ### mock 工单数据
 
-数据文件：
-
-```text
-server/data/work-orders.ts
-```
-
-当前包含 3 条 mock 工单：
+这一节是历史学习记录。早期项目曾经用内存数组保存 3 条 mock 工单，现在实际代码已经切到 Prisma + MySQL，旧 mock 文件已删除：
 
 - 设备故障：`2 号线混料设备温度偏高`
 - IT 问题：`质检电脑无法连接内网`
@@ -904,25 +898,30 @@ utils/api/auth.ts 或 services/auth.ts
   负责封装接口请求，例如 loginApi、fetchMeApi、logoutApi。
 
 server/api/login.post.ts
-  负责真正的服务端登录逻辑，例如查用户、校验密码、创建 Redis session、写 cookie。
+  负责真正的服务端登录逻辑，例如解密密码、查用户、校验密码、创建 Redis session、写 cookie。
 ```
 
 也就是说，store 不应该写 `login()` 这种业务用例。更清晰的做法是：API 层只发请求，composable 组织登录流程，store 只保存状态：
 
 ```ts
 // utils/api/auth.ts
-export function loginApi(payload: LoginPayload) {
+export async function loginApi(form: LoginForm) {
+  const encryptedPassword = await encryptPasswordForRequest(form.password)
+
   return $fetch<LoginResponse>('/api/login', {
     method: 'POST',
-    body: payload
+    body: {
+      username: form.username,
+      encryptedPassword
+    }
   })
 }
 ```
 
 ```ts
 // composables/use-auth.ts
-async function login(payload: LoginPayload) {
-  const result = await loginApi(payload)
+async function login(form: LoginForm) {
+  const result = await loginApi(form)
 
   authStore.setUser(result.user)
 
@@ -983,10 +982,12 @@ POST /api/login
 server/api/login.post.ts
 ```
 
-当前 mock 规则是：
+当前演示账号来自 MySQL 的 `users` 表：
 
 - 用户名：`admin`
 - 密码：`123456`
+
+这里的 `123456` 只存在于登录表单和本次服务端请求内存里。前端提交前会先请求 `/api/auth/password-key` 拿 RSA 公钥，再把密码加密成 `encryptedPassword` 提交；后端用私钥解密后，再用 bcrypt 和 `users.password_hash` 做单向哈希校验。
 
 账号密码正确时，服务端写入 cookie：
 
@@ -1132,28 +1133,27 @@ utils/api/auth.ts
 server/api/login.post.ts
 ```
 
-mock 登录接口，校验账号密码并写入 cookie。
+登录接口，先解密 `encryptedPassword`，再读取数据库用户，用 bcrypt 校验密码哈希，并写入 cookie。
 
 ```text
 server/api/me.get.ts
 ```
 
-mock 当前用户接口，校验 cookie 后返回用户信息。
+当前用户接口，校验 cookie 对应的 Redis session 后返回用户信息。
 
 ```text
 server/api/logout.post.ts
 ```
 
-mock 退出接口，删除登录 cookie。
+退出接口，删除 Redis session 和登录 cookie。
 
 ```text
-server/data/work-orders.ts
 server/api/work-orders/index.get.ts
 server/api/work-orders/add/index.post.ts
 server/api/work-orders/detail/[id].get.ts
 ```
 
-mock 工单数据、工单列表接口、新增接口和详情接口。页面通过 `GET /api/work-orders` 获取列表，通过 `POST /api/work-orders/add` 新增工单，通过 `GET /api/work-orders/detail/:id` 获取详情。
+工单列表接口、新增接口和详情接口。当前实际数据来自 Prisma + MySQL，不再读取旧的内存 mock 文件。页面通过 `GET /api/work-orders` 获取列表，通过 `POST /api/work-orders/add` 新增工单，通过 `GET /api/work-orders/detail/:id` 获取详情。
 
 ## 推荐学习顺序
 

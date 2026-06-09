@@ -7,7 +7,7 @@
 项目里的登录 token 保存在 Redis。核心代码在：
 
 ```text
-server/data/auth.ts
+server/services/auth.ts
 ```
 
 代码读取环境变量：
