@@ -1,7 +1,9 @@
 import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/use-auth'
+import { checkPagePermissionApi } from '~/utils/api/permissions'
+import { isUnauthorizedError } from '~/utils/api/auth'
 
-const whiteList = ['/login']
+const whiteList = ['/login', '/']
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
@@ -24,5 +26,33 @@ export default defineNuxtRouteMiddleware(async (to) => {
       : '/dashboard'
 
     return navigateTo(redirect)
+  }
+
+  if (!currentUser || whiteList.includes(to.path)) {
+    return
+  }
+
+  const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+
+  try {
+    const { allowed } = await checkPagePermissionApi(to.path, requestFetch)
+
+    if (!allowed) {
+      return abortNavigation(createError({
+        statusCode: 403,
+        statusMessage: '没有当前页面的访问权限'
+      }))
+    }
+  } catch (error) {
+    if (isUnauthorizedError(error)) {
+      return navigateTo({
+        path: '/login',
+        query: {
+          redirect: to.fullPath
+        }
+      })
+    }
+
+    throw error
   }
 })

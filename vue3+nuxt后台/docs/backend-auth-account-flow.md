@@ -293,7 +293,7 @@ MySQL users 表
 
 ## 为什么前端隐藏菜单还不够
 
-账号管理菜单只给超级管理员显示，这是前端体验。
+账号管理菜单只给有页面权限的角色显示，这是前端体验。
 
 但是安全不能靠前端，因为普通用户可以自己用工具请求：
 
@@ -301,7 +301,18 @@ MySQL users 表
 POST /api/users
 ```
 
-所以真正的权限判断必须写在后端接口里：
+所以真正的权限判断必须写在后端接口里，也必须以数据库权限表为准。
+
+当前页面访问链路是：
+
+```text
+middleware/auth.global.ts
+  -> GET /api/permissions/page-access?path=/accounts
+  -> server/services/permissions.ts
+  -> 查询 permissions 表和 role_permissions 表
+```
+
+接口访问还要继续在 API 层兜底：
 
 ```ts
 if (!isSuperAdmin(event.context.currentUser)) {
@@ -320,12 +331,14 @@ if (!isSuperAdmin(event.context.currentUser)) {
 - token 会写入 cookie。
 - 后端接口会统一鉴权。
 - 创建账号需要超级管理员。
+- 角色和权限已经落到 `roles`、`permissions`、`role_permissions` 表。
+- 菜单展示和页面访问都会通过后端读取权限表判断，不读取前端页面文件。
 
 但它仍然可以继续升级：
 
 - 没有做 token 过期清理。
 - 没有做账号禁用、重置密码、删除账号。
-- 角色还是单字段字符串，没有拆成角色表和权限表。
+- 还没有把所有按钮操作都做成统一的权限码校验。
 
 后续如果按真实企业项目继续升级，可以做：
 
@@ -333,4 +346,4 @@ if (!isSuperAdmin(event.context.currentUser)) {
 - 修改密码。
 - 重置密码。
 - 用户禁用。
-- 角色表 `roles` 和权限表 `permissions`。
+- 按 `permission.code` 给每个高风险按钮和接口补统一授权校验。

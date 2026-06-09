@@ -42,7 +42,9 @@ const menuIconMap: Record<string, string> = {
   'system.page': 'Setting'
 }
 
-// 所有页面都先建立页面权限；页面里的关键操作再建立按钮权限。
+// 这组数据只负责“初始化数据库权限表”，不是运行时权限来源。
+// 正常企业后台里，权限判断必须以 Permission + RolePermission 表为准；
+// 前端页面文件、Nuxt 自动路由和 SidebarMenu 只能负责展示，不能反推用户是否有权限。
 // code 是后端以后判断权限时最稳定的字段，不建议用中文名称判断权限。
 const permissionSeeds: PermissionSeedPage[] = [
   {
@@ -141,20 +143,50 @@ const adminDefaultPermissionCodes = [
   'system.page'
 ]
 
-async function upsertDefaultPermissions() {
+function normalizePagePath(path: string) {
+  const pathWithoutQuery = path.split('?')[0]?.split('#')[0] ?? '/'
+  const normalized = pathWithoutQuery.startsWith('/') ? pathWithoutQuery : `/${pathWithoutQuery}`
+
+  if (normalized.length > 1 && normalized.endsWith('/')) {
+    return normalized.slice(0, -1)
+  }
+
+  return normalized
+}
+
+function splitPath(path: string) {
+  return normalizePagePath(path).split('/').filter(Boolean)
+}
+
+function isDynamicSegment(segment: string) {
+  return segment.startsWith('[') && segment.endsWith(']')
+}
+
+function isPagePathMatched(permissionPath: string, requestPath: string) {
+  const permissionSegments = splitPath(permissionPath)
+  const requestSegments = splitPath(requestPath)
+
+  if (permissionSegments.length !== requestSegments.length) {
+    return false
+  }
+
+  return permissionSegments.every((segment, index) => {
+    return isDynamicSegment(segment) || segment === requestSegments[index]
+  })
+}
+
+async function ensureDefaultPermissions() {
   for (const page of permissionSeeds) {
-    const pagePermission = await prisma.permission.upsert({
+    const existingPagePermission = await prisma.permission.findUnique({
       where: {
         code: page.code
       },
-      update: {
-        name: page.name,
-        type: 1,
-        parentId: null,
-        path: page.path,
-        sort: page.sort
-      },
-      create: {
+    })
+
+    // 默认数据只负责补齐缺失记录；如果数据库里已经有这个 code，就尊重表里的值。
+    // 这样后续把权限维护做成后台配置时，不会被服务启动逻辑反向覆盖。
+    const pagePermission = existingPagePermission ?? await prisma.permission.create({
+      data: {
         name: page.name,
         code: page.code,
         type: 1,
@@ -164,18 +196,18 @@ async function upsertDefaultPermissions() {
     })
 
     for (const button of page.buttons ?? []) {
-      await prisma.permission.upsert({
+      const existingButtonPermission = await prisma.permission.findUnique({
         where: {
           code: button.code
-        },
-        update: {
-          name: button.name,
-          type: 2,
-          parentId: pagePermission.id,
-          path: null,
-          sort: button.sort
-        },
-        create: {
+        }
+      })
+
+      if (existingButtonPermission) {
+        continue
+      }
+
+      await prisma.permission.create({
+        data: {
           name: button.name,
           code: button.code,
           type: 2,
@@ -243,7 +275,9 @@ async function ensureDefaultRolePermissions() {
 }
 
 export async function ensurePermissionSeedData() {
-  await upsertDefaultPermissions()
+  // 学习项目没有单独写 seed 命令，所以在权限相关入口做幂等初始化。
+  // 默认权限只补缺失记录；后续菜单、页面访问和角色授权都重新查询数据库表。
+  await ensureDefaultPermissions()
   await ensureDefaultRolePermissions()
 }
 
@@ -275,6 +309,8 @@ function toPermissionTreeItem(permission: {
 export async function listPermissionTree() {
   await ensurePermissionSeedData()
 
+  // 权限管理页展示的是数据库里的权限树，而不是扫描 pages 目录得到的路由树。
+  // 管理员在页面上新增权限后，也会保存到 Permission 表，再通过这里读出来。
   const permissions = await prisma.permission.findMany({
     include: {
       rolePermissions: true
@@ -329,6 +365,8 @@ export async function listMenuRoutesForUser(user: AuthUser | undefined) {
 
   const userRoles = user?.roles ?? []
   const isSuperAdmin = userRoles.includes('super_admin')
+  // 左侧菜单从 Permission 表读取页面权限，再用 RolePermission 表判断当前角色是否拥有。
+  // 这里没有读取 Nuxt 的 pages 目录，也没有读取前端菜单配置；数据库才是运行时权限真相。
   const permissions = await prisma.permission.findMany({
     where: {
       type: 1
@@ -369,6 +407,46 @@ export async function listMenuRoutesForUser(user: AuthUser | undefined) {
       path: permission.path ?? '/',
       icon: menuIconMap[permission.code] ?? 'Setting'
     }))
+}
+
+export async function canAccessPageByPath(user: AuthUser | undefined, rawPath: string) {
+  await ensurePermissionSeedData()
+
+  if (!user) {
+    return false
+  }
+
+  const requestPath = normalizePagePath(rawPath)
+  const userRoles = user.roles ?? []
+  const isSuperAdmin = userRoles.includes('super_admin')
+
+  // 页面访问控制也从 Permission + RolePermission 表查。
+  // 这样用户手动输入 /accounts 这种地址时，前端 route middleware 仍然会问后端数据库。
+  const pagePermissions = await prisma.permission.findMany({
+    where: {
+      type: 1,
+      path: {
+        not: null
+      }
+    },
+    include: {
+      rolePermissions: true
+    }
+  })
+
+  const matchedPermission = pagePermissions.find((permission) => {
+    return permission.path ? isPagePathMatched(permission.path, requestPath) : false
+  })
+
+  if (!matchedPermission) {
+    return false
+  }
+
+  if (isSuperAdmin) {
+    return true
+  }
+
+  return matchedPermission.rolePermissions.some(item => userRoles.includes(item.role))
 }
 
 export async function createPermission(input: CreatePermissionInput) {

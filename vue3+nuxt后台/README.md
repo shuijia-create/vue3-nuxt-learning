@@ -45,11 +45,25 @@ app.vue
 - `pages/ai/work-order-draft.vue`：AI 工单草稿助手页面，支持生成草稿并保存为正式工单。
 - `pages/ai/knowledge.vue`：企业文档问答占位页面。
 
-后台左侧菜单写在：
+后台左侧菜单的 UI 写在：
 
 ```text
 components/SidebarMenu.vue
 ```
+
+但是菜单数据不是写死在前端文件里，而是来自：
+
+```text
+components/SidebarMenu.vue
+  ↓ 请求
+GET /api/menus
+  ↓
+server/services/permissions.ts
+  ↓ 查询
+permissions 表 + role_permissions 表
+```
+
+也就是说，`SidebarMenu.vue` 只负责把后端返回的菜单渲染出来；真正决定“某个角色能不能看到某个页面”的地方是数据库里的权限表和角色权限表。
 
 顶部页面标签写在：
 
@@ -69,6 +83,20 @@ utils/admin-page-title.ts
 ```
 
 `el-menu` 上开启了 `router`，所以 `el-menu-item` 的 `index` 会被 Element Plus 当成路由地址处理。
+
+页面手动访问也要过数据库权限校验：
+
+```text
+middleware/auth.global.ts
+  ↓ 调用
+GET /api/permissions/page-access?path=/accounts
+  ↓
+server/services/permissions.ts
+  ↓ 查询
+permissions 表 + role_permissions 表
+```
+
+这样用户直接在地址栏输入 `/accounts` 时，也不会靠前端文件判断权限，而是由后端拿当前登录用户的角色去数据库里查。
 
 ## 当前工单模块全栈链路
 

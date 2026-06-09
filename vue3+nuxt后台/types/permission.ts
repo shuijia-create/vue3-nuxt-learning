@@ -19,3 +19,7 @@ export interface PermissionsResponse {
   list: PermissionTreeItem[]
   rolePermissionIds: Record<string, number[]>
 }
+
+export interface PagePermissionCheckResponse {
+  allowed: boolean
+}
