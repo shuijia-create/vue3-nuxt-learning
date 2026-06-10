@@ -34,7 +34,9 @@ export type AuthInfo = {
   buttons: AuthButtonPermission[]
 }
 
-export type LoginResponse = AuthInfo
+export type LoginResponse = {
+  token: string
+}
 
 export type MeResponse = AuthInfo
 

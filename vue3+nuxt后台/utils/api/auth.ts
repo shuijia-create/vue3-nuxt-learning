@@ -39,7 +39,7 @@ export async function loginApi(form: LoginForm) {
     encryptedPassword: await encryptPasswordForRequest(form.password)
   }
 
-  // 调用 Nuxt 后端登录接口；成功后后端会写入 httpOnly cookie。
+  // 调用 Nuxt 后端登录接口；成功后后端会返回 token，并写入 SSR 需要的 httpOnly cookie。
   return $fetch<LoginResponse>('/api/login', {
     // 登录接口使用 POST，因为它会创建服务端 session。
     method: 'POST',
@@ -48,13 +48,22 @@ export async function loginApi(form: LoginForm) {
   })
 }
 
-// 获取当前登录用户；可选 fetcher 是为了 SSR 时让调用方传 useRequestFetch。
-export function fetchMeApi(fetcher?: ApiFetch) {
+// 获取当前登录用户和权限；这就是后台常说的 getInfo。
+// 可选 fetcher 是为了 SSR 时让调用方传 useRequestFetch。
+// token 来自登录接口返回值，登录后第一次 getInfo 会显式带 Bearer token。
+export function fetchMeApi(fetcher?: ApiFetch, token?: string) {
   // 如果调用方没传 fetcher，就根据当前环境自动选择。
   const requestFetch = fetcher ?? getApiFetch()
 
   // 请求 /api/me；服务端 middleware 会根据 cookie + Redis session 解析当前用户。
-  return requestFetch<MeResponse>('/api/me')
+  // 权限 routes/buttons 只从这里返回，不从 login 返回。
+  return requestFetch<MeResponse>('/api/me', {
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`
+        }
+      : undefined
+  })
 }
 
 // 退出登录接口请求。

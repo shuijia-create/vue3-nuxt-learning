@@ -16,13 +16,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 判断当前要跳转的页面是不是登录页。
   const isLoginPage = to.path === '/login'
 
-  // 判断当前用户是否已登录，并在第一次进入后台时通过 /api/me 拉取 getInfo。
-  // getInfo 会一次性返回用户信息、后端路由配置和按钮权限配置。
+  // 判断当前用户是否已登录，并在刷新或首次进入后台时通过 /api/me 拉取 getInfo。
+  // getInfo 是权限的唯一前端来源：用户信息、后端路由配置和按钮权限都从这里返回。
   // - 白名单页面（登录页、首页）不需要检查登录态，省掉一次不必要的 /api/me 请求。
-  // - 其他页面：先从 store 缓存取，缓存没有就调 /api/me 向后端确认并缓存权限快照。
+  // - 其他页面：交给 fetchCurrentUser() 处理；刷新页面时 store 是空的，会重新请求 /api/me。
   const currentUser = whiteList.includes(to.path)
     ? (auth.user ?? null)
-    : (auth.user ?? await authActions.fetchCurrentUser())
+    : await authActions.fetchCurrentUser()
 
   // ========== 第一道门：未登录拦截 ==========
   // 没登录 + 目标页面不在白名单里 → 踢回登录页，并记录原始地址方便登录后跳回。
@@ -52,8 +52,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  // ========== 第三道门：后端路由配置本地校验 ==========
-  // 可访问路由已经由 /api/me 返回并缓存在 auth store 里。
+  // ========== 第三道门：getInfo 路由配置本地校验 ==========
+  // 可访问路由只由 /api/me 返回并缓存在 auth store 里。
   // 路由跳转时前端只按后端返回的 routes 判断，不再自己定义权限路由。
   if (!auth.canAccessPage(to.path)) {
     return abortNavigation(createError({

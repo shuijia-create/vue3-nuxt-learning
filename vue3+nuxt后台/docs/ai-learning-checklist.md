@@ -164,9 +164,10 @@ npm run build
 
 ## 学习记录
 
+- 2026-06-10：修正登录/getInfo 职责边界：`POST /api/login` 只返回 token 并创建 session，`GET /api/me` 作为唯一 getInfo 返回 `user`、`routes`、`buttons`；登录成功后带 token 调 getInfo，刷新页面时通过 cookie 调 getInfo，以获取最新权限。
 - 2026-06-10：把 getInfo 权限快照收敛为后端返回的 `routes` 和 `buttons`，前端菜单、页面跳转、业务按钮都只消费后端配置；服务端接口按权限码兜底校验。
 - 2026-06-10：删除单独的 `server/utils/password.ts` 封装，改为在 `server/services/users.ts` 的登录校验和账号创建位置直接调用 `bcrypt.compare` 与 `bcrypt.hash`。
-- 2026-06-09：把 `/api/me` 升级为 getInfo 接口，登录和刷新时一次性返回用户信息、后端路由配置和按钮权限；前端路由跳转改为本地权限判断，不再每次请求页面权限接口。
+- 2026-06-09：把 `/api/me` 升级为 getInfo 接口，返回用户信息、后端路由配置和按钮权限；前端路由跳转改为本地权限判断，不再每次请求页面权限接口。
 - 2026-06-09：新增 `docs/login-flow.md`，把前端登录、密码加密、后端解密、bcrypt 校验、Redis session、页面 middleware 和服务端 API 鉴权串成一条阅读链路。
 - 2026-05-22：创建 AI 工单草稿接口，前端可以调用后端生成结构化草稿。
 - 2026-05-22：AI 草稿支持一键保存为正式工单，形成“AI 草稿 -> 工单列表”的业务闭环。

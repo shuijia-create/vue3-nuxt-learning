@@ -7,20 +7,24 @@ export function useAuth() {
   const authStore = useAuthStore()
 
   async function login(form: LoginForm) {
-    const result = await loginApi(form)
+    const { token } = await loginApi(form)
 
-    authStore.setAuthInfo(result)
+    const currentUser = await fetchCurrentUser({ force: true, token })
 
-    return result.user
+    if (!currentUser) {
+      throw new Error('登录成功，但获取用户信息和权限失败')
+    }
+
+    return currentUser
   }
 
-  async function fetchCurrentUser() {
-    if (authStore.authResolved && authStore.user) {
+  async function fetchCurrentUser(options: { force?: boolean, token?: string } = {}) {
+    if (!options.force && authStore.authResolved && authStore.user) {
       return authStore.user
     }
 
     try {
-      const result = await fetchMeApi()
+      const result = await fetchMeApi(undefined, options.token)
 
       authStore.setAuthInfo(result)
 

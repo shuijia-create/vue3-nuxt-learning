@@ -21,9 +21,9 @@
 
 - 项目结构：沿用当前 Nuxt 学习项目的分层，不额外抽复杂模块。
 - API client：前端使用 `utils/api/*` 封装 `$fetch`，页面不直接拼接口细节。
-- 登录态：使用 `httpOnly cookie + Redis session`，前端不保存 token。
+- 登录态：`POST /api/login` 返回 token；当前 Nuxt SSR 学习项目同时写入 `httpOnly cookie`，方便刷新页面时服务端恢复登录态。
 - 密码传输：前端 RSA-OAEP 公钥加密，后端私钥解密，数据库仍然只保存 bcrypt 哈希。
-- getInfo：`/api/login` 和 `/api/me` 都返回 `user`、`routes`、`buttons`；路由和按钮权限都来自后端权限表。
+- getInfo：只有 `/api/me` 返回 `user`、`routes`、`buttons`；路由和按钮权限都来自后端权限表。
 - 权限边界：页面 middleware 负责跳转体验，服务端 middleware 和接口判断负责真正安全。
 
 ## 登录完整流程
@@ -69,11 +69,13 @@ server/services/auth.ts
   v
 server/api/login.post.ts
   setCookie("nuxt-admin-token", token, { httpOnly: true })
-  return { user, routes, buttons }
+  return { token }
   |
   v
 composables/use-auth.ts
-  authStore.setAuthInfo(result)
+  fetchCurrentUser({ force: true, token })
+  GET /api/me
+  authStore.setAuthInfo(getInfo)
   |
   v
 pages/login.vue
@@ -85,8 +87,8 @@ pages/login.vue
 - 请求体不传原始明文密码，只传 `encryptedPassword`。
 - 后端解密出的密码只在本次请求内存里使用。
 - 数据库里的 `users.password_hash` 仍然是 bcrypt 哈希。
-- token 不返回给前端 JavaScript，只写入 `httpOnly cookie`。
-- 菜单和页面权限不用登录后再单独请求，登录响应里已经带回来。
+- token 由登录接口返回；为了 SSR 刷新恢复登录态，也会写入 `httpOnly cookie`。
+- 菜单、页面路由和按钮权限只从 getInfo 返回，登录成功后要带 login 返回的 token 再请求 `/api/me`。
 
 ## 登录页负责什么
 
@@ -113,7 +115,7 @@ pages/login.vue
 
 它是认证用例层：
 
-- `login(form)`：调用 `loginApi(form)`，成功后把 getInfo 写入 Pinia。
+- `login(form)`：调用 `loginApi(form)` 拿 token，成功后带 token 强制调用 `/api/me`，把 getInfo 写入 Pinia。
 - `fetchCurrentUser()`：调用 `/api/me`，成功后更新用户和权限快照；401 时清空用户。
 - `logout()`：调用后端退出接口，清空用户和页面标签，跳回登录页。
 
@@ -128,7 +130,7 @@ pages/login.vue
 - `loginApi(form)`：把页面表单转换成接口请求体。
 - 登录前调用 `encryptPasswordForRequest(form.password)`。
 - 最终提交的是 `{ username, encryptedPassword }`。
-- `fetchMeApi()`：请求 `/api/me`，SSR 时通过 `useRequestFetch()` 转发 cookie。
+- `fetchMeApi()`：请求 `/api/me`，登录后可带 `Authorization: Bearer <token>`；SSR 刷新时通过 `useRequestFetch()` 转发 cookie。
 - `logoutApi()`：请求 `/api/logout`。
 - `isUnauthorizedError()`：统一判断 401，给 middleware 和 composable 使用。
 
@@ -194,11 +196,11 @@ PASSWORD_PRIVATE_KEY=
 3. 调用 `findUserByCredentials()` 查询用户并校验密码。
 4. 调用 `createAuthSession()` 创建 Redis session。
 5. `setCookie()` 写入 `httpOnly cookie`。
-6. 返回安全的 `user` 信息。
+6. 返回本次登录生成的 `token`。
 
 它不做：
 
-- 不把 token 放进响应 body。
+- 不返回 `user`、`routes`、`buttons`，这些只由 `/api/me` 返回。
 - 不返回 `passwordHash`。
 - 不把解密后的密码写入数据库。
 
@@ -260,7 +262,7 @@ nuxt-admin-token=<token>
 
 每次请求后端接口时：
 
-1. 从 cookie 取 `nuxt-admin-token`。
+1. 优先从 `Authorization: Bearer <token>` 取 token，没有时再从 cookie 取 `nuxt-admin-token`。
 2. 用 token 去 Redis 查 username。
 3. 查不到就返回 401。
 4. 查到 username 后，再去 MySQL 查当前用户。
@@ -277,10 +279,10 @@ nuxt-admin-token=<token>
 
 - 未登录访问后台页面，跳到 `/login?redirect=原页面`。
 - 已登录访问 `/login`，跳到 `/dashboard` 或 redirect。
-- 已登录访问后台页面时，用 `stores/auth.ts` 里缓存的 `routes` 做本地页面权限校验。
+- 已登录访问后台页面时，用 `/api/me` 返回并缓存在 `stores/auth.ts` 里的 `routes` 做本地页面权限校验。
 - SSR 阶段请求 `/api/me` 时使用 `useRequestFetch()` 转发 cookie。
 
-注意：这里不再每次页面跳转都请求页面权限接口。页面路由配置和按钮权限都来自登录或刷新时的 getInfo。
+注意：这里不再每次页面跳转都请求页面权限接口。页面路由配置和按钮权限都来自 `/api/me`；登录成功后带 login token 请求一次，刷新页面时 store 重新初始化并通过 cookie 重新请求 getInfo，因此权限表变更后刷新即可生效。
 
 它和 `server/middleware/auth.ts` 的区别：
 

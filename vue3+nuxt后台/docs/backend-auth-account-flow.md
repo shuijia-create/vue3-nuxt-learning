@@ -9,12 +9,13 @@
 1. 前端先调用 `GET /api/auth/password-key` 获取 RSA 公钥。
 2. 前端用公钥把密码加密成 `encryptedPassword`，再调用 `POST /api/login`。
 3. 后端用私钥解密密码，再去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
-4. 校验成功后，后端生成一个随机 token，写入 `httpOnly` cookie，不返回给前端 JavaScript。
-5. 浏览器后续请求接口时自动带上 cookie。
-6. `POST /api/login` 和 `GET /api/me` 都会返回 getInfo：`user`、`routes`、`buttons`。
-7. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
-8. 创建账号时，服务端会校验当前用户是否拥有 `accounts.create` 按钮权限。
-9. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
+4. 校验成功后，后端生成一个随机 token，登录接口把 token 返回给前端。
+5. 当前 Nuxt SSR 学习项目也会把 token 写入 `httpOnly` cookie，方便刷新页面时服务端恢复登录态。
+6. 浏览器后续请求接口时自动带上 cookie。
+7. 只有 `GET /api/me` 返回 getInfo：`user`、`routes`、`buttons`。
+8. `server/middleware/auth.ts` 先从 Bearer token 或 cookie 里取 token，找到当前用户名，再查数据库得到当前用户。
+9. 创建账号时，服务端会校验当前用户是否拥有 `accounts.create` 按钮权限。
+10. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
 
 ## 后端文件分别是干嘛的
 
@@ -127,24 +128,17 @@ POST /api/login
 3. 调用 `findUserByCredentials()` 查数据库并校验密码。
 4. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
 5. 用 `setCookie()` 把 token 写入 `httpOnly` cookie。
-6. 查询当前用户的后端路由配置和按钮权限，和安全用户信息一起返回给前端。
+6. 返回本次登录生成的 token；用户信息和权限不从登录接口返回。
 
 返回格式大概是：
 
 ```json
 {
-  "user": {
-    "id": 1,
-    "username": "admin",
-    "nickname": "管理员",
-    "roles": ["super_admin"]
-  },
-  "routes": [],
-  "buttons": []
+  "token": "a-random-login-token"
 }
 ```
 
-注意：返回的 `user` 里没有 `passwordHash`，也不会把 token 放进响应 body。
+注意：登录接口只证明账号密码正确并创建登录态。前端要拿用户信息、菜单路由和按钮权限，继续请求 `GET /api/me`。
 
 ### `server/middleware/auth.ts`
 
@@ -154,7 +148,7 @@ POST /api/login
 
 它的流程是：
 
-1. 从 cookie 读取 `nuxt-admin-token`。
+1. 优先从 `Authorization: Bearer <token>` 读取 token，没有时再从 cookie 读取 `nuxt-admin-token`。
 2. 用 token 去 `server/services/auth.ts` 里找 username。
 3. 找不到 username，说明没登录，返回 401。
 4. 找到 username 后，调用 `findAuthUserByUsername()` 重新查数据库。
@@ -267,9 +261,9 @@ server/services/auth.ts
 server/api/login.post.ts
   |
   | setCookie("nuxt-admin-token", token, { httpOnly: true })
-  | return { user, routes, buttons }
+  | return { token }
   v
-浏览器自动保存 httpOnly cookie，前端 store 保存 user 和权限快照
+浏览器自动保存 httpOnly cookie，前端带 Bearer token 继续请求 GET /api/me 保存 user 和权限快照
 ```
 
 ## 后续接口怎么知道你是谁
@@ -285,7 +279,7 @@ Cookie: nuxt-admin-token=xxxx
 ```text
 server/middleware/auth.ts
   |
-  | getCookie(event, "nuxt-admin-token")
+  | getHeader(event, "authorization") 或 getCookie(event, "nuxt-admin-token")
   | getAuthSessionUsername(token)
   | findAuthUserByUsername(username)
   v
@@ -372,11 +366,11 @@ await requirePermissionCode(event.context.currentUser, 'accounts.create')
 - 密码用 bcrypt 哈希保存。
 - 除登录校验外，服务端查询用户时不再读取 `passwordHash`。
 - token 是随机生成的。
-- token 会写入 cookie。
+- token 会由登录接口返回，并写入 SSR 刷新需要的 cookie。
 - 后端接口会统一鉴权。
 - 创建账号需要 `accounts.create` 按钮权限。
 - 角色和权限已经落到 `roles`、`permissions`、`role_permissions` 表。
-- 登录和刷新时会通过后端读取权限表，返回后端路由配置和按钮权限；页面跳转时前端用本地权限快照判断。
+- 登录成功后和刷新页面时会请求 `/api/me`，通过后端读取权限表，返回后端路由配置和按钮权限；页面跳转时前端用本地权限快照判断。
 
 但它仍然可以继续升级：
 

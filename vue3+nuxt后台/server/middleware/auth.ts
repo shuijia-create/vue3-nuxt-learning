@@ -3,6 +3,18 @@ import { authCookieName, getAuthSessionUsername, publicApiPaths } from '~/server
 // 引入用户 service，用 Redis session 里的 username 重新查询数据库用户。
 import { findAuthUserByUsername } from '~/server/services/users'
 
+function getBearerToken(event: Parameters<typeof getHeader>[0]) {
+  const authorization = getHeader(event, 'authorization')
+
+  if (!authorization) {
+    return undefined
+  }
+
+  const [scheme, token] = authorization.split(' ')
+
+  return scheme?.toLowerCase() === 'bearer' && token ? token : undefined
+}
+
 // Nuxt server/middleware 会在服务端处理请求前执行这里的逻辑。
 export default defineEventHandler(async (event) => {
   // 从当前请求 URL 里取出 pathname，例如 /api/me 或 /dashboard。
@@ -20,8 +32,9 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // 从 httpOnly cookie 里取出登录 token；前端 JavaScript 不能直接读取这个 cookie。
-  const token = getCookie(event, authCookieName)
+  // 登录后第一次 getInfo 可以显式带 Authorization: Bearer <token>。
+  // 页面刷新时，SSR 阶段仍然可以从 httpOnly cookie 恢复登录态。
+  const token = getBearerToken(event) ?? getCookie(event, authCookieName)
   // 拿 token 去 Redis 查 username；这一步只确认 token 对应哪个账号。
   const username = await getAuthSessionUsername(token)
 
