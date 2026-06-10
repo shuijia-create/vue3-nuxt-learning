@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '企业文档问答 - Nuxt 后台学习项目'
+  title: '企业文档问答 - 企业工单后台'
 })
 
 const question = ref('设备故障工单需要填写哪些信息？')

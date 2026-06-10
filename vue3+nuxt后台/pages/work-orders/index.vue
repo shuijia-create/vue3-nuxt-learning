@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { WorkOrderStatus, WorkOrderType } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
@@ -12,7 +13,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '工单列表 - Nuxt 后台学习项目'
+  title: '工单列表 - 企业工单后台'
 })
 
 type CreateWorkOrderForm = {
@@ -50,6 +51,8 @@ const { data, pending, error, refresh } = await useAsyncData('work-orders', () =
 
 const createDialogVisible = ref(false)
 const createFormRef = ref()
+const workOrderCurrentPage = ref(1)
+const workOrderPageSize = ref(10)
 const createForm = reactive<CreateWorkOrderForm>({
   title: '',
   type: '',
@@ -60,14 +63,19 @@ const createForm = reactive<CreateWorkOrderForm>({
 const tableData = computed<BaseTableRow[]>(() => {
   return (data.value?.list ?? []).map((item) => ({ ...item }))
 })
+const pagedTableData = computed(() => {
+  const start = (workOrderCurrentPage.value - 1) * workOrderPageSize.value
+
+  return tableData.value.slice(start, start + workOrderPageSize.value)
+})
 
 const workOrderTypeOptions: WorkOrderType[] = ['设备故障', 'IT 问题', '质量异常']
 const workOrderStatusOptions: WorkOrderStatus[] = ['待处理', '处理中', '待确认']
 
-const statusTypeMap: Record<WorkOrderStatus, 'warning' | 'primary' | 'danger'> = {
-  待处理: 'warning',
-  处理中: 'primary',
-  待确认: 'danger'
+const statusClassMap: Record<WorkOrderStatus, string> = {
+  待处理: 'status-pending',
+  处理中: 'status-processing',
+  待确认: 'status-review'
 }
 
 const createRules = {
@@ -133,10 +141,14 @@ const columns: BaseTableColumn[] = [
   }
 ]
 
-function getStatusTagType(value: unknown) {
+function getStatusClass(value: unknown) {
   const status = value as WorkOrderStatus
 
-  return statusTypeMap[status]
+  return statusClassMap[status]
+}
+
+function getSourceClass(value: unknown) {
+  return value === 'AI 草稿' ? 'source-ai' : 'source-manual'
 }
 
 async function handleSearch() {
@@ -148,6 +160,7 @@ async function handleSearch() {
     type: filterForm.type || undefined,
     status: filterForm.status || undefined
   }
+  workOrderCurrentPage.value = 1
   await refresh()
 }
 
@@ -162,6 +175,7 @@ async function resetSearch() {
     type: undefined,
     status: undefined
   }
+  workOrderCurrentPage.value = 1
   await refresh()
 }
 
@@ -184,6 +198,11 @@ function openCreateDialog() {
 
 function closeCreateDialog() {
   createDialogVisible.value = false
+}
+
+function handleWorkOrderPageSizeChange(value: number) {
+  workOrderPageSize.value = value
+  workOrderCurrentPage.value = 1
 }
 
 async function handleCreateSubmit() {
@@ -212,16 +231,16 @@ async function handleCreateSubmit() {
 </script>
 
 <template>
-  <section>
+  <section class="data-page">
     <div class="page-head">
       <div>
         <h1 class="page-title">工单列表</h1>
         <p class="page-desc">
-          页面只处理筛选、弹窗和表格渲染，请求流程统一交给 useWorkOrders。
+          按类型、状态筛选工单，跟进现场处理和确认进度。
         </p>
       </div>
 
-      <el-button v-if="canCreateWorkOrder" type="primary" @click="openCreateDialog">
+      <el-button v-if="canCreateWorkOrder" :icon="Plus" type="primary" @click="openCreateDialog">
         新建工单
       </el-button>
     </div>
@@ -261,10 +280,10 @@ async function handleCreateSubmit() {
         </el-form-item>
 
         <el-form-item>
-          <el-button v-if="canSearchWorkOrders" type="primary" @click="handleSearch">
+          <el-button v-if="canSearchWorkOrders" :icon="Search" type="primary" @click="handleSearch">
             查询
           </el-button>
-          <el-button v-if="canResetWorkOrders" @click="resetSearch">
+          <el-button v-if="canResetWorkOrders" :icon="Refresh" @click="resetSearch">
             重置
           </el-button>
         </el-form-item>
@@ -280,23 +299,37 @@ async function handleCreateSubmit() {
       show-icon
     />
 
-    <el-card shadow="never">
+    <el-card class="table-card" shadow="never">
+      <template #header>
+        <div class="table-card-header">
+          <span>工单列表</span>
+          <span class="table-count">共 {{ tableData.length }} 条工单</span>
+        </div>
+      </template>
+
       <BaseTable
-        :model-value="tableData"
+        :model-value="pagedTableData"
         :columns="columns"
         :loading="pending"
+        :total="tableData.length"
+        :current-page="workOrderCurrentPage"
+        :page-size="workOrderPageSize"
+        pagination
         row-key="id"
+        @current-change="workOrderCurrentPage = $event"
+        @size-change="handleWorkOrderPageSizeChange"
       >
         <template #status="{ value }">
-          <el-tag :type="getStatusTagType(value)" effect="light">
+          <el-tag class="status-tag" :class="getStatusClass(value)" effect="plain">
             {{ value }}
           </el-tag>
         </template>
 
         <template #source="{ value }">
           <el-tag
-            :type="value === 'AI 草稿' ? 'success' : 'info'"
-            effect="light"
+            class="status-tag"
+            :class="getSourceClass(value)"
+            effect="plain"
           >
             {{ value }}
           </el-tag>
@@ -379,33 +412,8 @@ async function handleCreateSubmit() {
 </template>
 
 <style scoped>
-.page-head {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.page-desc {
-  margin: -6px 0 0;
-  color: var(--admin-muted);
-}
-
-.page-alert {
-  margin-bottom: 16px;
-}
-
-.filter-card {
-  margin-bottom: 16px;
-}
-
 .filter-card :deep(.el-form-item) {
   margin-bottom: 0;
-}
-
-.filter-control {
-  width: 160px;
 }
 
 .form-control {

@@ -11,7 +11,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '工单草稿助手 - Nuxt 后台学习项目'
+  title: '工单草稿助手 - 企业工单后台'
 })
 
 const description = ref('2 号线混料设备温度偏高，现场已暂停投料，设备有报警但不清楚代码。')
@@ -38,10 +38,10 @@ const draft = ref<WorkOrderDraft>({
   ]
 })
 
-const priorityTypeMap: Record<WorkOrderPriority, 'success' | 'warning' | 'danger'> = {
-  低: 'success',
-  中: 'warning',
-  高: 'danger'
+const priorityClassMap: Record<WorkOrderPriority, string> = {
+  低: 'priority-low',
+  中: 'priority-middle',
+  高: 'priority-high'
 }
 
 async function handleGenerateDraft() {
@@ -115,11 +115,16 @@ async function handleSaveAsWorkOrder() {
 
 <template>
   <section>
-    <h1 class="page-title">AI 工单草稿助手</h1>
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">AI 工单草稿助手</h1>
+        <p class="page-desc">把现场描述整理为可流转的工单草稿。</p>
+      </div>
+    </div>
 
     <el-row :gutter="16">
       <el-col :md="10" :sm="24">
-        <el-card shadow="never">
+        <el-card class="draft-input-card" shadow="never">
           <template #header>问题描述</template>
           <el-input
             v-model="description"
@@ -141,14 +146,11 @@ async function handleSaveAsWorkOrder() {
           >
             生成工单草稿
           </el-button>
-          <p class="learning-note">
-            已接入后端 AI 调用入口：配置 API Key 后调用真实 AI，未配置时使用本地 mock。
-          </p>
         </el-card>
       </el-col>
 
       <el-col :md="14" :sm="24">
-        <el-card shadow="never">
+        <el-card class="draft-result-card" shadow="never">
           <template #header>结构化草稿</template>
 
           <el-descriptions :column="1" border>
@@ -156,10 +158,10 @@ async function handleSaveAsWorkOrder() {
               {{ draft.title }}
             </el-descriptions-item>
             <el-descriptions-item label="建议类型">
-              <el-tag>{{ draft.type }}</el-tag>
+              <el-tag class="status-tag source-ai" effect="plain">{{ draft.type }}</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="优先级">
-              <el-tag :type="priorityTypeMap[draft.priority]">
+              <el-tag class="status-tag" :class="priorityClassMap[draft.priority]" effect="plain">
                 {{ draft.priority }}
               </el-tag>
             </el-descriptions-item>
@@ -173,8 +175,8 @@ async function handleSaveAsWorkOrder() {
               <el-tag
                 v-for="item in draft.missingInfo"
                 :key="item"
-                class="draft-tag"
-                type="warning"
+                class="draft-tag status-tag status-pending"
+                effect="plain"
               >
                 {{ item }}
               </el-tag>
@@ -210,7 +212,13 @@ async function handleSaveAsWorkOrder() {
   margin-top: 12px;
 }
 
+.draft-input-card,
+.draft-result-card {
+  height: 100%;
+}
+
 .generate-button {
+  width: 100%;
   margin-top: 16px;
 }
 

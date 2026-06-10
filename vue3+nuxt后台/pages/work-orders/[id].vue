@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowLeft } from '@element-plus/icons-vue'
 import type { WorkOrderStatus } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
 import { useNotifications } from '~/composables/use-notifications'
@@ -26,10 +27,10 @@ const hasAiSuggestion = computed(() => {
 const updatingStatus = ref(false)
 const canChangeWorkOrderStatus = computed(() => auth.hasButtonPermission('work_order_detail.change_status'))
 
-const statusTypeMap: Record<WorkOrderStatus, 'warning' | 'primary' | 'danger'> = {
-  待处理: 'warning',
-  处理中: 'primary',
-  待确认: 'danger'
+const statusClassMap: Record<WorkOrderStatus, string> = {
+  待处理: 'status-pending',
+  处理中: 'status-processing',
+  待确认: 'status-review'
 }
 
 const nextStatusAction = computed(() => {
@@ -54,7 +55,7 @@ const nextStatusAction = computed(() => {
 useHead(() => ({
   title: workOrder.value
     ? `${workOrder.value.title} - 工单详情`
-    : '工单详情 - Nuxt 后台学习项目'
+    : '工单详情 - 企业工单后台'
 }))
 
 async function handleChangeStatus(status: WorkOrderStatus) {
@@ -79,19 +80,27 @@ async function handleChangeStatus(status: WorkOrderStatus) {
     updatingStatus.value = false
   }
 }
+
+function getStatusClass(status: WorkOrderStatus) {
+  return statusClassMap[status]
+}
+
+function getSourceClass(value: unknown) {
+  return value === 'AI 草稿' ? 'source-ai' : 'source-manual'
+}
 </script>
 
 <template>
-  <section>
+  <section class="detail-page">
     <div class="page-head">
       <div>
         <h1 class="page-title">工单详情</h1>
         <p class="page-desc">
-          当前页面通过路由参数 id 请求对应工单详情。
+          查看工单信息、AI 建议和人工处理记录。
         </p>
       </div>
 
-      <el-button @click="navigateTo('/work-orders')">
+      <el-button :icon="ArrowLeft" @click="navigateTo('/work-orders')">
         返回列表
       </el-button>
     </div>
@@ -108,11 +117,11 @@ async function handleChangeStatus(status: WorkOrderStatus) {
       show-icon
     />
 
-    <el-card v-else-if="workOrder" shadow="never">
+    <el-card v-else-if="workOrder" class="detail-card" shadow="never">
       <template #header>
         <div class="card-header">
           <span>{{ workOrder.title }}</span>
-          <el-tag :type="statusTypeMap[workOrder.status]">
+          <el-tag class="status-tag" :class="getStatusClass(workOrder.status)" effect="plain">
             {{ workOrder.status }}
           </el-tag>
         </div>
@@ -129,7 +138,7 @@ async function handleChangeStatus(status: WorkOrderStatus) {
           {{ workOrder.submitter }}
         </el-descriptions-item>
         <el-descriptions-item label="来源">
-          <el-tag :type="workOrder.source === 'AI 草稿' ? 'success' : 'info'">
+          <el-tag class="status-tag" :class="getSourceClass(workOrder.source)" effect="plain">
             {{ workOrder.source }}
           </el-tag>
         </el-descriptions-item>
@@ -150,10 +159,10 @@ async function handleChangeStatus(status: WorkOrderStatus) {
         >
           {{ nextStatusAction.label }}
         </el-button>
-        <el-tag v-else-if="nextStatusAction" type="info">
+        <el-tag v-else-if="nextStatusAction" class="status-tag source-manual" effect="plain">
           暂无状态流转权限
         </el-tag>
-        <el-tag v-else type="success">
+        <el-tag v-else class="status-tag status-success" effect="plain">
           当前工单等待确认
         </el-tag>
       </div>
@@ -183,7 +192,7 @@ async function handleChangeStatus(status: WorkOrderStatus) {
               v-for="item in workOrder.aiSuggestion?.missingInfo"
               :key="item"
               class="ai-tag"
-              type="warning"
+              effect="plain"
             >
               {{ item }}
             </el-tag>
@@ -220,17 +229,8 @@ async function handleChangeStatus(status: WorkOrderStatus) {
 </template>
 
 <style scoped>
-.page-head {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.page-desc {
-  margin: -6px 0 0;
-  color: var(--admin-muted);
+.detail-page {
+  min-height: calc(100vh - 164px);
 }
 
 .card-header {
@@ -262,6 +262,9 @@ async function handleChangeStatus(status: WorkOrderStatus) {
 .ai-tag {
   margin-right: 8px;
   margin-bottom: 8px;
+  color: var(--admin-warning);
+  background: var(--admin-warning-soft);
+  border-color: #fcd34d;
 }
 
 .record-title {

@@ -43,7 +43,7 @@ function getMenuIcon(icon: string) {
   <el-menu
     :default-active="activeMenu"
     class="sidebar-menu"
-    background-color="#0f172a"
+    background-color="transparent"
     text-color="#cbd5e1"
     active-text-color="#ffffff"
     router
@@ -63,10 +63,23 @@ function getMenuIcon(icon: string) {
 
 <style scoped>
 .sidebar-menu {
+  padding: 10px 8px;
   border-right: 0;
 }
 
+.sidebar-menu :deep(.el-menu-item) {
+  height: 44px;
+  margin: 4px 0;
+  border-radius: 8px;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  color: #ffffff;
+  background: rgb(255 255 255 / 8%);
+}
+
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: var(--admin-sidebar-active);
+  background: linear-gradient(135deg, var(--admin-sidebar-active), var(--admin-accent));
+  box-shadow: 0 10px 20px rgb(37 99 235 / 18%);
 }
 </style>

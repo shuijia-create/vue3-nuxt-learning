@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '登录 - Nuxt 后台学习项目'
+  title: '登录 - 企业工单后台'
 })
 
 const route = useRoute()
@@ -53,10 +53,10 @@ async function handleLogin() {
   <div class="login-page">
     <section class="login-visual">
       <div class="visual-content">
-        <div class="visual-badge">Nuxt 4 / SSR / Element Plus</div>
-        <h1>后台管理学习项目</h1>
+        <div class="visual-badge">Enterprise Work Order</div>
+        <h1>企业工单后台</h1>
         <p>
-          通过一个小而完整的后台示例，学习文件路由、布局、middleware、server/api 和登录鉴权。
+          面向生产现场、IT 支持和质量异常的统一处理台。
         </p>
       </div>
     </section>
@@ -114,7 +114,7 @@ async function handleLogin() {
   display: grid;
   min-height: 100vh;
   grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
-  background: #ffffff;
+  background: var(--admin-bg);
 }
 
 .login-visual {
@@ -124,7 +124,7 @@ async function handleLogin() {
   padding: 80px;
   color: #ffffff;
   background:
-    linear-gradient(135deg, rgb(15 23 42 / 92%), rgb(37 99 235 / 84%)),
+    linear-gradient(135deg, rgb(15 23 42 / 88%), rgb(15 118 110 / 72%)),
     url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80') center / cover;
 }
 
@@ -169,6 +169,11 @@ async function handleLogin() {
 
 .login-box {
   width: min(100%, 390px);
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  box-shadow: var(--admin-shadow-md);
 }
 
 .login-heading {

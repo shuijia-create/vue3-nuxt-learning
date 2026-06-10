@@ -13,7 +13,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '权限管理 - Nuxt 后台学习项目'
+  title: '权限管理 - 企业工单后台'
 })
 
 type PermissionQueryForm = {
@@ -185,8 +185,8 @@ function filterPermissionTree(rows: PermissionTreeItem[]) {
   }, [])
 }
 
-function getPermissionTypeTagType(row: BaseTableRow) {
-  return Number(row.type) === 1 ? 'primary' : 'success'
+function getPermissionTypeClass(row: BaseTableRow) {
+  return Number(row.type) === 1 ? 'permission-page-tag' : 'permission-button-tag'
 }
 
 function getPermissionMeta(row: BaseTableRow) {
@@ -365,7 +365,7 @@ async function handleCreatePermission() {
           </template>
 
           <template #permissionType="{ row }">
-            <el-tag :type="getPermissionTypeTagType(row)">
+            <el-tag class="status-tag" :class="getPermissionTypeClass(row)" effect="plain">
               {{ row.typeLabel }}
             </el-tag>
           </template>

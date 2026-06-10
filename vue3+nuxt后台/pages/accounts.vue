@@ -13,7 +13,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '账号管理 - Nuxt 后台学习项目'
+  title: '账号管理 - 企业工单后台'
 })
 
 type AccountUser = {
@@ -379,7 +379,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
                 :value="item.value"
               />
             </el-select>
-            <el-tag v-else type="info">
+            <el-tag v-else class="status-tag source-manual" effect="plain">
               {{ row.roleLabel }}
             </el-tag>
           </template>

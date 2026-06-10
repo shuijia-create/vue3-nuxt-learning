@@ -65,12 +65,12 @@ onBeforeUnmount(() => {
 
 <template>
   <el-container class="admin-layout">
-    <el-aside class="admin-sidebar" width="220px">
+    <el-aside class="admin-sidebar" width="228px">
       <div class="brand">
-        <div class="brand-mark">N</div>
+        <div class="brand-mark">W</div>
         <div>
-          <div class="brand-title">Nuxt 后台</div>
-          <div class="brand-subtitle">SSR 学习项目</div>
+          <div class="brand-title">工单后台</div>
+          <div class="brand-subtitle">Work Order Admin</div>
         </div>
       </div>
 
@@ -80,9 +80,9 @@ onBeforeUnmount(() => {
     <el-container>
       <el-header class="admin-header">
         <div>
-          <div class="header-title">管理控制台</div>
+          <div class="header-title">企业工单后台</div>
           <div class="header-subtitle">
-            页面 middleware 负责跳转，server/api 负责真实接口鉴权。
+            工单、通知、账号和权限统一管理
           </div>
         </div>
 
@@ -111,15 +111,20 @@ onBeforeUnmount(() => {
               @click.stop
             >
               <div class="notification-head">
-                <span>站内通知</span>
+                <div>
+                  <div class="notification-head-title">站内通知</div>
+                  <div class="notification-head-meta">
+                    {{ notificationsStore.unreadCount }} 条未读
+                  </div>
+                </div>
                 <el-button
                   :icon="Refresh"
-                  link
+                  circle
+                  plain
                   :loading="notificationsStore.pending"
+                  aria-label="刷新通知"
                   @click="notificationActions.fetchNotifications()"
-                >
-                  刷新
-                </el-button>
+                />
               </div>
 
               <el-empty
@@ -137,15 +142,18 @@ onBeforeUnmount(() => {
                   :class="{ unread: !notification.readAt }"
                   @click="handleNotificationClick(notification)"
                 >
+                  <span class="notification-state" />
                   <div class="notification-title-row">
                     <span class="notification-title">{{ notification.title }}</span>
-                    <span v-if="!notification.readAt" class="unread-dot" />
                   </div>
                   <div class="notification-content">
                     {{ notification.content }}
                   </div>
-                  <div class="notification-time">
-                    {{ notification.createdAt }}
+                  <div class="notification-meta-row">
+                    <span>{{ notification.createdAt }}</span>
+                    <span class="notification-read-state">
+                      {{ notification.readAt ? '已读' : '未读' }}
+                    </span>
                   </div>
                 </button>
               </div>
@@ -175,7 +183,9 @@ onBeforeUnmount(() => {
 
 .admin-sidebar {
   overflow: hidden;
-  background: var(--admin-sidebar);
+  background:
+    linear-gradient(180deg, rgb(37 99 235 / 14%) 0, transparent 220px),
+    var(--admin-sidebar);
 }
 
 .brand {
@@ -183,20 +193,21 @@ onBeforeUnmount(() => {
   gap: 12px;
   align-items: center;
   height: 72px;
-  padding: 0 20px;
+  padding: 0 18px;
   color: #ffffff;
   border-bottom: 1px solid rgb(255 255 255 / 8%);
 }
 
 .brand-mark {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   font-size: 18px;
   font-weight: 800;
-  background: var(--admin-primary);
+  background: linear-gradient(135deg, var(--admin-primary), var(--admin-accent));
   border-radius: 8px;
+  box-shadow: 0 10px 24px rgb(37 99 235 / 24%);
 }
 
 .brand-title {
@@ -214,13 +225,14 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 72px;
+  height: 70px;
   padding: 0 24px;
   background: #ffffff;
   border-bottom: 1px solid var(--admin-border);
 }
 
 .header-title {
+  color: var(--admin-text);
   font-size: 18px;
   font-weight: 700;
 }
@@ -233,7 +245,7 @@ onBeforeUnmount(() => {
 
 .header-actions {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
 }
 
@@ -245,53 +257,66 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  color: #606266;
+  width: 36px;
+  height: 36px;
+  color: var(--admin-text-secondary);
   cursor: pointer;
-  background: #ffffff;
-  border: 1px solid #dcdfe6;
-  border-radius: 50%;
+  background: var(--admin-surface-subtle);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
 }
 
 .notification-button:hover {
   color: var(--admin-primary);
-  border-color: var(--admin-primary);
+  background: var(--admin-primary-soft);
+  border-color: #bfdbfe;
 }
 
 .notification-panel {
   position: absolute;
-  top: 42px;
+  top: 46px;
   right: 0;
   z-index: 20;
-  width: 360px;
-  max-height: 420px;
-  padding: 12px;
+  width: 390px;
+  max-height: 480px;
+  padding: 14px;
   background: #ffffff;
   border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  box-shadow: 0 12px 32px rgb(15 23 42 / 16%);
+  border-radius: 10px;
+  box-shadow: var(--admin-shadow-md);
 }
 
 .notification-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.notification-head-title {
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.notification-head-meta {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 12px;
 }
 
 .notification-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 340px;
+  max-height: 386px;
   overflow-y: auto;
 }
 
 .notification-item {
+  position: relative;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 12px 12px 16px;
   color: var(--admin-text);
   text-align: left;
   cursor: pointer;
@@ -301,11 +326,27 @@ onBeforeUnmount(() => {
 }
 
 .notification-item:hover {
-  border-color: var(--admin-primary);
+  background: #f8fbff;
+  border-color: #bfdbfe;
 }
 
 .notification-item.unread {
-  background: #eff6ff;
+  background: var(--admin-primary-soft);
+  border-color: #bfdbfe;
+}
+
+.notification-state {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  background: var(--admin-border-strong);
+  border-radius: 999px;
+}
+
+.notification-item.unread .notification-state {
+  background: var(--admin-primary);
 }
 
 .notification-title-row {
@@ -320,14 +361,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.unread-dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  background: var(--admin-primary);
-  border-radius: 50%;
-}
-
 .notification-content {
   margin-top: 6px;
   color: var(--admin-muted);
@@ -335,10 +368,22 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
-.notification-time {
+.notification-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 8px;
-  color: #94a3b8;
+  color: var(--admin-text-weak);
   font-size: 12px;
+}
+
+.notification-read-state {
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.notification-item.unread .notification-read-state {
+  color: var(--admin-primary);
 }
 
 .user-name {
@@ -347,8 +392,8 @@ onBeforeUnmount(() => {
 }
 
 .admin-content {
-  min-height: calc(100vh - 116px);
-  padding: 24px;
+  min-height: calc(100vh - 112px);
+  padding: 22px 24px 24px;
   background: var(--admin-bg);
 }
 </style>

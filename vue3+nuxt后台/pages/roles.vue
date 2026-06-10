@@ -14,7 +14,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '角色管理 - Nuxt 后台学习项目'
+  title: '角色管理 - 企业工单后台'
 })
 
 type RoleQueryForm = {
@@ -223,12 +223,12 @@ function getRoleStatusLabel(value: unknown) {
   return Number(value) === 1 ? '启用' : '停用'
 }
 
-function getRoleStatusTagType(value: unknown) {
-  return Number(value) === 1 ? 'success' : 'info'
+function getRoleStatusClass(value: unknown) {
+  return Number(value) === 1 ? 'status-success' : 'source-manual'
 }
 
-function getPermissionTypeTagType(row: BaseTableRow) {
-  return Number(row.type) === 1 ? 'primary' : 'success'
+function getPermissionTypeClass(row: BaseTableRow) {
+  return Number(row.type) === 1 ? 'permission-page-tag' : 'permission-button-tag'
 }
 
 function isPermissionChecked(row: BaseTableRow) {
@@ -481,7 +481,7 @@ async function handleSaveRolePermissions() {
           @size-change="handleRolePageSizeChange"
         >
           <template #status="{ value }">
-            <el-tag :type="getRoleStatusTagType(value)">
+            <el-tag class="status-tag" :class="getRoleStatusClass(value)" effect="plain">
               {{ getRoleStatusLabel(value) }}
             </el-tag>
           </template>
@@ -608,7 +608,7 @@ async function handleSaveRolePermissions() {
           </template>
 
           <template #permissionType="{ row }">
-            <el-tag :type="getPermissionTypeTagType(row)">
+            <el-tag class="status-tag" :class="getPermissionTypeClass(row)" effect="plain">
               {{ row.typeLabel }}
             </el-tag>
           </template>

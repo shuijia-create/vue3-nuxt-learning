@@ -8,7 +8,7 @@ definePageMeta({
 })
 
 useHead({
-  title: '系统日志 - Nuxt 后台学习项目'
+  title: '系统日志 - 企业工单后台'
 })
 
 const requestFetch = import.meta.server ? useRequestFetch() : $fetch

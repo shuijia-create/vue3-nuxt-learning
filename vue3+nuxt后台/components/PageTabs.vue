@@ -83,9 +83,9 @@ onMounted(() => {
 
 <style scoped>
 .page-tabs {
-  height: 44px;
-  padding: 7px 16px;
-  background: #ffffff;
+  height: 42px;
+  padding: 6px 16px;
+  background: var(--admin-surface-subtle);
   border-bottom: 1px solid var(--admin-border);
 }
 
@@ -96,7 +96,26 @@ onMounted(() => {
 }
 
 .page-tab {
+  height: 28px;
+  padding: 0 10px;
   cursor: pointer;
+  border-radius: 6px;
   user-select: none;
+}
+
+.page-tab.el-tag--dark {
+  background: var(--admin-primary);
+  border-color: var(--admin-primary);
+}
+
+.page-tab.el-tag--plain {
+  color: var(--admin-text-secondary);
+  background: #ffffff;
+  border-color: var(--admin-border);
+}
+
+.page-tab.el-tag--plain:hover {
+  color: var(--admin-primary);
+  border-color: #bfdbfe;
 }
 </style>
