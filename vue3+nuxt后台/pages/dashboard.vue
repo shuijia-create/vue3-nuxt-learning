@@ -25,7 +25,10 @@ const reviewCount = computed(() => workOrders.value.filter((item) => item.status
 const closedCount = computed(() => workOrders.value.filter((item) => item.status === '已关闭').length)
 const aiDraftCount = computed(() => workOrders.value.filter((item) => item.source === 'AI 草稿').length)
 const recentWorkOrders = computed<BaseTableRow[]>(() => {
-  return workOrders.value.slice(0, 6).map((item) => ({ ...item }))
+  return workOrders.value.slice(0, 6).map((item) => ({
+    ...item,
+    submitterDeptName: item.submitterDeptName ?? '未配置'
+  }))
 })
 
 const statusClassMap: Record<WorkOrderStatus, string> = {
@@ -111,6 +114,16 @@ const columns: BaseTableColumn[] = [
     label: '处理部门',
     prop: 'handlerDeptName',
     width: 130
+  },
+  {
+    label: '提交人',
+    prop: 'submitter',
+    width: 110
+  },
+  {
+    label: '提交部门',
+    prop: 'submitterDeptName',
+    width: 120
   },
   {
     label: '状态',

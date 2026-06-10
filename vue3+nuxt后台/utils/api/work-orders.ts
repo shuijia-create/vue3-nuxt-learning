@@ -22,7 +22,6 @@ export type WorkOrderListParams = {
 export type CreateWorkOrderPayload = {
   title: string
   type: WorkOrderType
-  submitter: string
   description: string
   source?: WorkOrderSource
   priority?: WorkOrderPriority

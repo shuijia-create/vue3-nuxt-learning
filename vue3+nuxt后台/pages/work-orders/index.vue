@@ -25,7 +25,6 @@ useHead({
 type CreateWorkOrderForm = {
   title: string
   type: WorkOrderType | ''
-  submitter: string
   description: string
 }
 
@@ -65,12 +64,14 @@ const workOrderPageSize = ref(10)
 const createForm = reactive<CreateWorkOrderForm>({
   title: '',
   type: '',
-  submitter: '',
   description: ''
 })
 
 const tableData = computed<BaseTableRow[]>(() => {
-  return (data.value?.list ?? []).map((item) => ({ ...item }))
+  return (data.value?.list ?? []).map((item) => ({
+    ...item,
+    submitterDeptName: item.submitterDeptName ?? '未配置'
+  }))
 })
 const pagedTableData = computed(() => {
   const start = (workOrderCurrentPage.value - 1) * workOrderPageSize.value
@@ -95,9 +96,6 @@ const createRules = {
   ],
   type: [
     { required: true, message: '请选择工单类型', trigger: 'change' }
-  ],
-  submitter: [
-    { required: true, message: '请输入提交人', trigger: 'blur' }
   ],
   description: [
     { required: true, message: '请输入问题描述', trigger: 'blur' }
@@ -138,6 +136,11 @@ const columns: BaseTableColumn[] = [
     label: '提交人',
     prop: 'submitter',
     width: 110
+  },
+  {
+    label: '提交部门',
+    prop: 'submitterDeptName',
+    width: 120
   },
   {
     label: '来源',
@@ -202,7 +205,6 @@ async function resetSearch() {
 function resetCreateForm() {
   createForm.title = ''
   createForm.type = ''
-  createForm.submitter = ''
   createForm.description = ''
   createFormRef.value?.clearValidate()
 }
@@ -236,7 +238,6 @@ async function handleCreateSubmit() {
     await workOrderActions.createWorkOrder({
       title: createForm.title,
       type: createForm.type as WorkOrderType,
-      submitter: createForm.submitter,
       description: createForm.description
     })
 
@@ -432,13 +433,6 @@ async function handleCreateSubmit() {
           :closable="false"
           show-icon
         />
-
-        <el-form-item label="提交人" prop="submitter">
-          <el-input
-            v-model="createForm.submitter"
-            placeholder="请输入提交人"
-          />
-        </el-form-item>
 
         <el-form-item label="问题描述" prop="description">
           <el-input

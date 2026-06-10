@@ -16,7 +16,6 @@ useHead({
 })
 
 const description = ref('2 号线混料设备温度偏高，现场已暂停投料，设备有报警但不清楚代码。')
-const submitter = ref('现场员工')
 const pending = ref(false)
 const saving = ref(false)
 const notificationActions = useNotifications()
@@ -85,18 +84,12 @@ async function handleSaveAsWorkOrder() {
     return
   }
 
-  if (!submitter.value.trim()) {
-    ElMessage.warning('请先填写提交人')
-    return
-  }
-
   saving.value = true
 
   try {
     await workOrderActions.createWorkOrder({
       title: draft.value.title,
       type: draft.value.type,
-      submitter: submitter.value.trim(),
       description: buildWorkOrderDescription(),
       source: 'AI 草稿',
       priority: draft.value.priority,
@@ -136,11 +129,6 @@ async function handleSaveAsWorkOrder() {
             type="textarea"
             :rows="8"
             placeholder="输入员工提交的问题描述"
-          />
-          <el-input
-            v-model="submitter"
-            class="submitter-input"
-            placeholder="提交人"
           />
           <el-button
             v-if="canGenerateDraft"
@@ -216,10 +204,6 @@ async function handleSaveAsWorkOrder() {
 </template>
 
 <style scoped>
-.submitter-input {
-  margin-top: 12px;
-}
-
 .draft-input-card,
 .draft-result-card {
   height: 100%;

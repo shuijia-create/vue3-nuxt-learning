@@ -76,10 +76,12 @@ const flowStepItems = computed(() => {
     return []
   }
 
+  const submitterDeptText = order.submitterDeptName ? `（${order.submitterDeptName}）` : ''
+
   return [
     {
       label: '员工提交',
-      desc: `${order.submitter} 提交工单`,
+      desc: `${order.submitter}${submitterDeptText} 提交工单`,
       time: order.createdAt,
       done: true
     },
@@ -268,6 +270,9 @@ function getSourceClass(value: unknown) {
         </el-descriptions-item>
         <el-descriptions-item label="提交人">
           {{ workOrder.submitter }}
+        </el-descriptions-item>
+        <el-descriptions-item label="提交部门">
+          {{ workOrder.submitterDeptName || '未配置' }}
         </el-descriptions-item>
         <el-descriptions-item label="指派处理人">
           {{ workOrder.assigneeName || '待指派' }}

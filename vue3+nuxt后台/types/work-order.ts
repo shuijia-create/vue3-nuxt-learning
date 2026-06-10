@@ -32,6 +32,7 @@ export interface WorkOrder {
   handlerDeptName: WorkOrderHandlerDepartment
   status: WorkOrderStatus
   submitter: string
+  submitterDeptName?: WorkOrderHandlerDepartment
   assigneeUserId?: number
   assigneeName?: string
   acceptedByName?: string

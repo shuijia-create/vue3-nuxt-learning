@@ -113,7 +113,7 @@ const roleColumns: BaseTableColumn[] = [
   },
   {
     label: '创建时间',
-    prop: 'createdAt',
+    prop: 'createdAtText',
     width: 180
   },
   {
@@ -181,7 +181,8 @@ const roleTableData = computed<BaseTableRow[]>(() => {
     ...role,
     managerText: role.isDepartmentManager ? '是' : '否',
     canSubmitWorkOrder: canRoleSubmitWorkOrder(role.code),
-    canSubmitText: canRoleSubmitWorkOrder(role.code) ? '是' : '否'
+    canSubmitText: canRoleSubmitWorkOrder(role.code) ? '是' : '否',
+    createdAtText: formatDate(role.createdAt)
   }))
 })
 const pagedRoleTableData = computed(() => {
@@ -279,6 +280,16 @@ function getRoleStatusLabel(value: unknown) {
 
 function getRoleStatusClass(value: unknown) {
   return Number(value) === 1 ? 'status-success' : 'source-manual'
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value))
 }
 
 function getPermissionTypeClass(row: BaseTableRow) {

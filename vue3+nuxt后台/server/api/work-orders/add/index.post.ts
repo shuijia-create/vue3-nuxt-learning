@@ -13,7 +13,6 @@ import type {
 type CreateWorkOrderBody = {
   title?: string
   type?: WorkOrderType
-  submitter?: string
   description?: string
   source?: WorkOrderSource
   priority?: WorkOrderPriority

@@ -33,7 +33,6 @@ type ListWorkOrdersParams = {
 type CreateWorkOrderInput = {
   title?: string
   type?: WorkOrderType
-  submitter?: string
   description?: string
   source?: WorkOrderSource
   priority?: WorkOrderPriority
@@ -167,6 +166,14 @@ function requireCurrentUser(currentUser: AuthUser | undefined) {
 // 操作日志需要显示“谁做的”。优先用登录用户昵称，没有时再退到提交人或系统用户。
 function getOperatorName(currentUser: AuthUser | undefined, fallback: string) {
   return currentUser?.nickname || currentUser?.username || fallback || '系统用户'
+}
+
+function getUserSnapshotName(currentUser: AuthUser) {
+  if (currentUser.nickname && currentUser.username && currentUser.nickname !== currentUser.username) {
+    return `${currentUser.nickname}（${currentUser.username}）`
+  }
+
+  return currentUser.nickname || currentUser.username
 }
 
 function isSuperAdmin(user: AuthUser) {
@@ -313,6 +320,12 @@ function toWorkOrderHandlerDept(order: DbWorkOrder, type: WorkOrderType): WorkOr
   return getDefaultWorkOrderHandlerDept(type)
 }
 
+function toWorkOrderSubmitterDept(order: DbWorkOrder): WorkOrderHandlerDepartment | undefined {
+  return isWorkOrderHandlerDepartment(order.submitterDeptName)
+    ? order.submitterDeptName
+    : undefined
+}
+
 async function notifyWorkOrderCreated(workOrder: WorkOrder, creatorId: number) {
   const recipientIds = new Set<number>([creatorId])
   const managers = await listDepartmentManagers(workOrder.handlerDeptName)
@@ -384,6 +397,7 @@ function toWorkOrder(order: DbWorkOrder): WorkOrder {
     handlerDeptName: toWorkOrderHandlerDept(order, type),
     status: dbToWorkOrderStatus[order.status] ?? '待受理',
     submitter: order.submitter,
+    submitterDeptName: toWorkOrderSubmitterDept(order),
     assigneeUserId: order.assigneeId ?? undefined,
     assigneeName: order.assigneeName ?? undefined,
     acceptedByName: order.acceptedByName ?? undefined,
@@ -458,11 +472,12 @@ export async function createWorkOrder(input: CreateWorkOrderInput, currentUser: 
   const user = requireCurrentUser(currentUser)
   // trim 放在后端做一遍，避免前端绕过表单校验提交纯空格。
   const title = input.title?.trim()
-  const submitter = input.submitter?.trim()
+  const submitter = getUserSnapshotName(user)
+  const submitterDeptName = user.departmentName
   const description = input.description?.trim()
 
   // 这里做服务端最终校验。前端校验只负责体验，不能作为安全边界。
-  if (!title || !input.type || !submitter || !description) {
+  if (!title || !input.type || !description) {
     throw new ServiceError(400, '请填写完整工单信息')
   }
 
@@ -487,6 +502,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput, currentUser: 
       status: workOrderStatusToDb.待受理,
       priority: workOrderPriorityToDb[priority],
       submitter,
+      submitterDeptName,
       description,
       source: workOrderSourceToDb[source],
       handlerDeptName,
