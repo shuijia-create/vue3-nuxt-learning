@@ -1,5 +1,5 @@
-import { isSuperAdmin } from '~/server/services/users'
-import { updateRolePermissions } from '~/server/services/permissions'
+import type { AuthUser } from '~/server/services/users'
+import { requirePermissionCode, updateRolePermissions } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
 
 type UpdateRolePermissionsBody = {
@@ -8,13 +8,7 @@ type UpdateRolePermissionsBody = {
 }
 
 export default defineEventHandler(async (event) => {
-  // 权限保存是高风险操作，必须在服务端判断当前用户是不是超级管理员。
-  if (!isSuperAdmin(event.context.currentUser)) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: '只有超级管理员可以修改权限'
-    })
-  }
+  await requirePermissionCode(event.context.currentUser as AuthUser | undefined, 'roles.save_permissions')
 
   const body = await readBody<UpdateRolePermissionsBody>(event)
   const role = body.role ?? ''

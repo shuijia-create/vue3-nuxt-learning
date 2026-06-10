@@ -1,5 +1,5 @@
-import { isSuperAdmin } from '~/server/services/users'
-import { createPermission } from '~/server/services/permissions'
+import type { AuthUser } from '~/server/services/users'
+import { createPermission, requirePermissionCode } from '~/server/services/permissions'
 import type { PermissionType } from '~/types/permission'
 
 type CreatePermissionBody = {
@@ -13,12 +13,7 @@ type CreatePermissionBody = {
 const permissionCodePattern = /^[a-z0-9_.-]{3,80}$/
 
 export default defineEventHandler(async (event) => {
-  if (!isSuperAdmin(event.context.currentUser)) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: '只有超级管理员可以创建权限'
-    })
-  }
+  await requirePermissionCode(event.context.currentUser as AuthUser | undefined, 'permissions.create')
 
   const body = await readBody<CreatePermissionBody>(event)
   const name = body.name?.trim() ?? ''

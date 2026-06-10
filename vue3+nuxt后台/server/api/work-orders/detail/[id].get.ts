@@ -1,9 +1,13 @@
+import type { AuthUser } from '~/server/services/users'
+import { requirePermissionCode } from '~/server/services/permissions'
 import { getWorkOrderDetail } from '~/server/services/work-orders'
 import { throwServiceError } from '~/server/utils/service-error'
 
 // GET /api/work-orders/detail/:id
 // 动态路由参数只在 API 层读取，参数是否合法由 service 再判断。
 export default defineEventHandler(async (event) => {
+  await requirePermissionCode(event.context.currentUser as AuthUser | undefined, 'work_order_detail.page')
+
   // 文件名 [id].get.ts 对应这里的 getRouterParam(event, 'id')。
   const id = getRouterParam(event, 'id') ?? ''
 

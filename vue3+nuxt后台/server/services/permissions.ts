@@ -1,9 +1,8 @@
 import { prisma } from '~/server/utils/prisma'
 import { ensureDefaultRoles, listEnabledRoleCodes, roleExists } from '~/server/services/roles'
 import type { AuthUser } from '~/server/services/users'
-import type { MenuRouteItem } from '~/types/menu'
 import type { PermissionTreeItem, PermissionType } from '~/types/permission'
-import type { AuthPagePermission } from '~/types/auth'
+import type { AuthButtonPermission, AuthRouteItem } from '~/types/auth'
 
 type PermissionSeedButton = {
   name: string
@@ -100,7 +99,8 @@ const permissionSeeds: PermissionSeedPage[] = [
     path: '/accounts',
     sort: 60,
     buttons: [
-      { name: '创建账号', code: 'accounts.create', sort: 61 }
+      { name: '创建账号', code: 'accounts.create', sort: 61 },
+      { name: '分配账号角色', code: 'accounts.update_role', sort: 62 }
     ]
   },
   {
@@ -339,38 +339,91 @@ export async function listPermissionTree() {
   }
 }
 
-function userOwnsPermission(permission: PermissionWithRoles, userRoles: string[], isSuperAdmin: boolean) {
-  if (isSuperAdmin) {
+function userOwnsPermission(permission: PermissionWithRoles, userRoles: string[], ownsAllPermissions: boolean) {
+  if (ownsAllPermissions) {
     return true
   }
 
   return permission.rolePermissions.some(item => userRoles.includes(item.role))
 }
 
-function toMenuRouteItem(permission: PermissionWithRoles): MenuRouteItem {
+export async function userHasAnyPermissionCode(user: AuthUser | undefined, codes: string[]) {
+  await ensurePermissionSeedData()
+
+  const userRoles = user?.roles ?? []
+
+  if (!user || codes.length === 0 || userRoles.length === 0) {
+    return false
+  }
+
+  if (userRoles.includes('super_admin')) {
+    return true
+  }
+
+  const matchedPermissionCount = await prisma.permission.count({
+    where: {
+      code: {
+        in: codes
+      },
+      rolePermissions: {
+        some: {
+          role: {
+            in: userRoles
+          }
+        }
+      }
+    }
+  })
+
+  return matchedPermissionCount > 0
+}
+
+export async function requireAnyPermissionCode(user: AuthUser | undefined, codes: string[]) {
+  if (await userHasAnyPermissionCode(user, codes)) {
+    return
+  }
+
+  throw createError({
+    statusCode: 403,
+    statusMessage: '无权执行当前操作'
+  })
+}
+
+export async function requirePermissionCode(user: AuthUser | undefined, code: string) {
+  await requireAnyPermissionCode(user, [code])
+}
+
+function toAuthRouteItem(permission: PermissionWithRoles): AuthRouteItem {
   return {
     code: permission.code,
     title: permission.name,
     path: permission.path ?? '/',
-    icon: menuIconMap[permission.code] ?? 'Setting'
+    icon: menuIconMap[permission.code] ?? 'Setting',
+    showInMenu: !permission.path?.includes('[')
   }
 }
 
-// getInfo 使用：一次性返回当前用户拥有的菜单、页面路由权限和按钮权限。
-// 前端刷新页面后只需要请求 /api/me，就能在本地完成页面跳转判断。
+function toAuthButtonPermission(permission: PermissionWithRoles): AuthButtonPermission {
+  return {
+    code: permission.code,
+    name: permission.name
+  }
+}
+
+// getInfo 使用：一次性返回当前用户拥有的后端路由配置和按钮权限配置。
+// 前端刷新页面后只需要请求 /api/me，就能按后端返回的 routes/buttons 完成本地判断。
 export async function getAuthPermissionSnapshotForUser(user: AuthUser | undefined) {
   await ensurePermissionSeedData()
 
   if (!user) {
     return {
-      menus: [],
-      pagePermissions: [],
-      buttonPermissions: []
+      routes: [],
+      buttons: []
     }
   }
 
   const userRoles = user.roles ?? []
-  const isSuperAdmin = userRoles.includes('super_admin')
+  const ownsAllPermissions = userRoles.includes('super_admin')
   const permissions = await prisma.permission.findMany({
     include: {
       rolePermissions: true
@@ -385,31 +438,22 @@ export async function getAuthPermissionSnapshotForUser(user: AuthUser | undefine
     ]
   })
   const ownedPermissions = permissions.filter((permission) => {
-    return userOwnsPermission(permission, userRoles, isSuperAdmin)
+    return userOwnsPermission(permission, userRoles, ownsAllPermissions)
   })
-  const menus = ownedPermissions
-    .filter((permission) => {
-      return permission.type === 1 && Boolean(permission.path) && !permission.path?.includes('[')
-    })
-    .map(toMenuRouteItem)
-  const pagePermissions = ownedPermissions
+  const routes = ownedPermissions
     .filter((permission) => {
       return permission.type === 1 && Boolean(permission.path)
     })
-    .map<AuthPagePermission>(permission => ({
-      code: permission.code,
-      path: permission.path ?? '/'
-    }))
-  const buttonPermissions = ownedPermissions
+    .map(toAuthRouteItem)
+  const buttons = ownedPermissions
     .filter((permission) => {
       return permission.type === 2
     })
-    .map(permission => permission.code)
+    .map(toAuthButtonPermission)
 
   return {
-    menus,
-    pagePermissions,
-    buttonPermissions
+    routes,
+    buttons
   }
 }
 

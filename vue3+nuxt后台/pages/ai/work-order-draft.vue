@@ -3,6 +3,7 @@ import type { WorkOrderDraft, WorkOrderPriority } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
 import { useNotifications } from '~/composables/use-notifications'
 import { useWorkOrders } from '~/composables/use-work-orders'
+import { useAuthStore } from '~/stores/auth'
 import { getApiErrorMessage } from '~/utils/api/errors'
 
 definePageMeta({
@@ -19,6 +20,9 @@ const pending = ref(false)
 const saving = ref(false)
 const notificationActions = useNotifications()
 const workOrderActions = useWorkOrders()
+const auth = useAuthStore()
+const canGenerateDraft = computed(() => auth.hasButtonPermission('ai_work_order_draft.generate'))
+const canSaveAsWorkOrder = computed(() => auth.hasButtonPermission('ai_work_order_draft.save_as_work_order'))
 
 const draft = ref<WorkOrderDraft>({
   title: '2 号线混料设备温度偏高报警',
@@ -41,6 +45,10 @@ const priorityTypeMap: Record<WorkOrderPriority, 'success' | 'warning' | 'danger
 }
 
 async function handleGenerateDraft() {
+  if (!canGenerateDraft.value) {
+    return
+  }
+
   const text = description.value.trim()
 
   if (!text) {
@@ -68,6 +76,10 @@ function buildWorkOrderDescription() {
 }
 
 async function handleSaveAsWorkOrder() {
+  if (!canSaveAsWorkOrder.value) {
+    return
+  }
+
   if (!submitter.value.trim()) {
     ElMessage.warning('请先填写提交人')
     return
@@ -121,6 +133,7 @@ async function handleSaveAsWorkOrder() {
             placeholder="提交人"
           />
           <el-button
+            v-if="canGenerateDraft"
             class="generate-button"
             type="primary"
             :loading="pending"
@@ -178,6 +191,7 @@ async function handleSaveAsWorkOrder() {
 
           <div class="draft-actions">
             <el-button
+              v-if="canSaveAsWorkOrder"
               type="primary"
               :loading="saving"
               @click="handleSaveAsWorkOrder"

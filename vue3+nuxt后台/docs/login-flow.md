@@ -23,7 +23,7 @@
 - API client：前端使用 `utils/api/*` 封装 `$fetch`，页面不直接拼接口细节。
 - 登录态：使用 `httpOnly cookie + Redis session`，前端不保存 token。
 - 密码传输：前端 RSA-OAEP 公钥加密，后端私钥解密，数据库仍然只保存 bcrypt 哈希。
-- getInfo：`/api/login` 和 `/api/me` 都返回 `user`、`menus`、`pagePermissions`、`buttonPermissions`。
+- getInfo：`/api/login` 和 `/api/me` 都返回 `user`、`routes`、`buttons`；路由和按钮权限都来自后端权限表。
 - 权限边界：页面 middleware 负责跳转体验，服务端 middleware 和接口判断负责真正安全。
 
 ## 登录完整流程
@@ -59,7 +59,7 @@ server/api/login.post.ts
   v
 server/services/users.ts
   prisma.user.findUnique({ username })
-  verifyPassword(password, user.passwordHash)
+  bcrypt.compare(password, user.passwordHash)
   |
   v
 server/services/auth.ts
@@ -69,7 +69,7 @@ server/services/auth.ts
   v
 server/api/login.post.ts
   setCookie("nuxt-admin-token", token, { httpOnly: true })
-  return { user, menus, pagePermissions, buttonPermissions }
+  return { user, routes, buttons }
   |
   v
 composables/use-auth.ts
@@ -215,7 +215,7 @@ findUserByCredentials(username, password)
 它做两件事：
 
 - 用 Prisma 从 MySQL `users` 表按 `username` 查用户。
-- 用 `verifyPassword(password, user.passwordHash)` 做 bcrypt 比较。
+- 用 `bcrypt.compare(password, user.passwordHash)` 做 bcrypt 比较。
 
 这里的 `password` 是后端私钥解密后得到的本次请求密码。数据库里保存的是 `passwordHash`，不是明文密码。
 
@@ -277,10 +277,10 @@ nuxt-admin-token=<token>
 
 - 未登录访问后台页面，跳到 `/login?redirect=原页面`。
 - 已登录访问 `/login`，跳到 `/dashboard` 或 redirect。
-- 已登录访问后台页面时，用 `stores/auth.ts` 里缓存的 `pagePermissions` 做本地页面权限校验。
+- 已登录访问后台页面时，用 `stores/auth.ts` 里缓存的 `routes` 做本地页面权限校验。
 - SSR 阶段请求 `/api/me` 时使用 `useRequestFetch()` 转发 cookie。
 
-注意：这里不再每次页面跳转都请求页面权限接口。页面权限、菜单路由和按钮权限都来自登录或刷新时的 getInfo。
+注意：这里不再每次页面跳转都请求页面权限接口。页面路由配置和按钮权限都来自登录或刷新时的 getInfo。
 
 它和 `server/middleware/auth.ts` 的区别：
 
@@ -315,7 +315,7 @@ server/middleware/auth.ts
   v
 server/api/me.get.ts
   |
-  | return { user, menus, pagePermissions, buttonPermissions }
+  | return { user, routes, buttons }
   v
 authStore.setAuthInfo(result)
 ```

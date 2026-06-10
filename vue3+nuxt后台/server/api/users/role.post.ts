@@ -1,4 +1,6 @@
-import { isSuperAdmin, updateUserRole } from '~/server/services/users'
+import type { AuthUser } from '~/server/services/users'
+import { updateUserRole } from '~/server/services/users'
+import { requirePermissionCode } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
 
 type UpdateUserRoleBody = {
@@ -7,12 +9,7 @@ type UpdateUserRoleBody = {
 }
 
 export default defineEventHandler(async (event) => {
-  if (!isSuperAdmin(event.context.currentUser)) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: '只有超级管理员可以分配账号角色'
-    })
-  }
+  await requirePermissionCode(event.context.currentUser as AuthUser | undefined, 'accounts.update_role')
 
   const body = await readBody<UpdateUserRoleBody>(event)
   const id = typeof body.id === 'number' && Number.isInteger(body.id) ? body.id : null

@@ -1,6 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { z } from 'zod'
+import type { AuthUser } from '~/server/services/users'
+import { requirePermissionCode } from '~/server/services/permissions'
 import type { WorkOrderDraft } from '~/types/work-order'
 
 type GenerateDraftBody = {
@@ -102,6 +104,8 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
 // POST /api/ai/work-order-draft
 // 前端只提交员工问题描述，后端决定调用真实 AI 还是本地 mock。
 export default defineEventHandler(async (event) => {
+  await requirePermissionCode(event.context.currentUser as AuthUser | undefined, 'ai_work_order_draft.generate')
+
   const body = await readBody<GenerateDraftBody>(event)
   const description = body.description?.trim()
 

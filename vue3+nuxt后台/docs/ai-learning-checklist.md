@@ -164,7 +164,9 @@ npm run build
 
 ## 学习记录
 
-- 2026-06-09：把 `/api/me` 升级为 getInfo 接口，登录和刷新时一次性返回用户信息、菜单、页面路由权限和按钮权限；前端路由跳转改为本地权限判断，不再每次请求页面权限接口。
+- 2026-06-10：把 getInfo 权限快照收敛为后端返回的 `routes` 和 `buttons`，前端菜单、页面跳转、业务按钮都只消费后端配置；服务端接口按权限码兜底校验。
+- 2026-06-10：删除单独的 `server/utils/password.ts` 封装，改为在 `server/services/users.ts` 的登录校验和账号创建位置直接调用 `bcrypt.compare` 与 `bcrypt.hash`。
+- 2026-06-09：把 `/api/me` 升级为 getInfo 接口，登录和刷新时一次性返回用户信息、后端路由配置和按钮权限；前端路由跳转改为本地权限判断，不再每次请求页面权限接口。
 - 2026-06-09：新增 `docs/login-flow.md`，把前端登录、密码加密、后端解密、bcrypt 校验、Redis session、页面 middleware 和服务端 API 鉴权串成一条阅读链路。
 - 2026-05-22：创建 AI 工单草稿接口，前端可以调用后端生成结构化草稿。
 - 2026-05-22：AI 草稿支持一键保存为正式工单，形成“AI 草稿 -> 工单列表”的业务闭环。
@@ -183,7 +185,7 @@ npm run build
 - 2026-06-04：通过 Prisma migration 创建 MySQL `users` 表，包含用户名、密码哈希、昵称、角色和创建/更新时间字段。
 - 2026-06-04：向 `users` 表写入 `admin` 演示账号，并把登录接口改为通过 Prisma 查询 MySQL 用户和校验密码哈希。
 - 2026-06-04：将登录密码校验从简单演示哈希升级为 bcrypt 单向哈希，并更新 `admin` 账号的 `password_hash`。
-- 2026-06-04：新增账号管理页面和 `/api/users` 接口，只有 `super_admin` 可以创建账号，新账号密码继续写入 bcrypt 哈希。
+- 2026-06-04：新增账号管理页面和 `/api/users` 接口，创建账号由后端 `accounts.create` 权限码控制，新账号密码继续写入 bcrypt 哈希。
 - 2026-06-04：新增后端登录、token、账号创建流程说明文档，并给关键后端文件补充学习注释。
 - 2026-06-05：安装 Redis 客户端依赖，给登录 session 增加 Redis 存储模式，并新增 Redis 保存 token 的项目学习文档。
 - 2026-06-05：新增 Redis 安装和 Navicat Premium 17 连接教程，说明本地启动 Redis、配置 `.env`、查看登录 session key 的步骤。

@@ -1,4 +1,5 @@
-import { isSuperAdmin } from '~/server/services/users'
+import type { AuthUser } from '~/server/services/users'
+import { requirePermissionCode } from '~/server/services/permissions'
 import { createRole, roleExists } from '~/server/services/roles'
 
 type CreateRoleBody = {
@@ -10,12 +11,7 @@ type CreateRoleBody = {
 const roleCodePattern = /^[a-z][a-z0-9_]{2,29}$/
 
 export default defineEventHandler(async (event) => {
-  if (!isSuperAdmin(event.context.currentUser)) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: '只有超级管理员可以创建角色'
-    })
-  }
+  await requirePermissionCode(event.context.currentUser as AuthUser | undefined, 'roles.create')
 
   const body = await readBody<CreateRoleBody>(event)
   const name = body.name?.trim() ?? ''

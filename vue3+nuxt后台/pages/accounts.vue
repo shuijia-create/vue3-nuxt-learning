@@ -35,7 +35,8 @@ const authActions = useAuth()
 
 await callOnce('current-user', () => authActions.fetchCurrentUser())
 
-const isSuperAdmin = computed(() => auth.user?.roles.includes('super_admin') ?? false)
+const canCreateAccount = computed(() => auth.hasButtonPermission('accounts.create'))
+const canUpdateAccountRole = computed(() => auth.hasButtonPermission('accounts.update_role'))
 const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
 const queryForm = reactive<AccountQueryForm>({
@@ -115,18 +116,10 @@ const {
   error,
   refresh
 } = await useAsyncData('accounts', () => {
-  if (!isSuperAdmin.value) {
-    return Promise.resolve({ list: [] })
-  }
-
   return requestFetch<{ list: AccountUser[] }>('/api/users')
 })
 
 const { data: rolesData } = await useAsyncData('roles-for-accounts', () => {
-  if (!isSuperAdmin.value) {
-    return Promise.resolve({ list: [] })
-  }
-
   return requestFetch<{ list: RoleListItem[] }>('/api/roles')
 })
 
@@ -205,6 +198,10 @@ function resetCreateForm() {
 }
 
 function openCreateDialog() {
+  if (!canCreateAccount.value) {
+    return
+  }
+
   createDialogVisible.value = true
   resetCreateForm()
 }
@@ -229,6 +226,10 @@ function getErrorMessage(error: unknown) {
 }
 
 async function handleCreateAccount() {
+  if (!canCreateAccount.value) {
+    return
+  }
+
   await createFormRef.value?.validate()
 
   creating.value = true
@@ -256,6 +257,10 @@ async function handleCreateAccount() {
 }
 
 async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
+  if (!canUpdateAccountRole.value) {
+    return
+  }
+
   const accountId = Number(row.id)
   const role = String(roleValue)
 
@@ -287,15 +292,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
       账号管理
     </h1>
 
-    <el-result
-      v-if="!isSuperAdmin"
-      icon="warning"
-      title="无权访问"
-      sub-title="只有超级管理员可以管理账号"
-    />
-
-    <template v-else>
-      <el-card class="query-card" shadow="never">
+    <el-card class="query-card" shadow="never">
         <el-form :model="queryForm" inline>
           <el-form-item label="用户名">
             <el-input
@@ -341,7 +338,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
             <el-button :icon="Refresh" @click="resetSearch">
               重置
             </el-button>
-            <el-button :icon="Plus" type="primary" @click="openCreateDialog">
+            <el-button v-if="canCreateAccount" :icon="Plus" type="primary" @click="openCreateDialog">
               创建账号
             </el-button>
           </el-form-item>
@@ -379,6 +376,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
         >
           <template #role="{ row }">
             <el-select
+              v-if="canUpdateAccountRole"
               class="table-role-select"
               :model-value="String(row.role ?? '')"
               :loading="updatingRoleUserId === Number(row.id)"
@@ -392,6 +390,9 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
                 :value="item.value"
               />
             </el-select>
+            <el-tag v-else type="info">
+              {{ row.roleLabel }}
+            </el-tag>
           </template>
         </BaseTable>
       </el-card>
@@ -442,6 +443,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
             取消
           </el-button>
           <el-button
+            v-if="canCreateAccount"
             type="primary"
             :loading="creating"
             @click="handleCreateAccount"
@@ -450,7 +452,6 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
           </el-button>
         </template>
       </el-dialog>
-    </template>
   </section>
 </template>
 

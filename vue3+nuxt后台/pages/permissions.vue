@@ -25,7 +25,7 @@ const authActions = useAuth()
 
 await callOnce('current-user', () => authActions.fetchCurrentUser())
 
-const isSuperAdmin = computed(() => auth.user?.roles.includes('super_admin') ?? false)
+const canCreatePermission = computed(() => auth.hasButtonPermission('permissions.create'))
 const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
 const queryForm = reactive<PermissionQueryForm>({
@@ -113,13 +113,6 @@ const {
   error,
   refresh
 } = await useAsyncData('permissions', async () => {
-  if (!isSuperAdmin.value) {
-    return {
-      list: [],
-      rolePermissionIds: {}
-    } satisfies PermissionsResponse
-  }
-
   return requestFetch<PermissionsResponse>('/api/permissions')
 })
 
@@ -227,6 +220,10 @@ function resetCreateForm() {
 }
 
 function openCreateDialog() {
+  if (!canCreatePermission.value) {
+    return
+  }
+
   createDialogVisible.value = true
   resetCreateForm()
 }
@@ -251,6 +248,10 @@ function getErrorMessage(error: unknown) {
 }
 
 async function handleCreatePermission() {
+  if (!canCreatePermission.value) {
+    return
+  }
+
   await createFormRef.value?.validate()
 
   creating.value = true
@@ -284,15 +285,7 @@ async function handleCreatePermission() {
       权限管理
     </h1>
 
-    <el-result
-      v-if="!isSuperAdmin"
-      icon="warning"
-      title="无权访问"
-      sub-title="只有超级管理员可以管理权限"
-    />
-
-    <template v-else>
-      <el-card class="query-card" shadow="never">
+    <el-card class="query-card" shadow="never">
         <el-form :model="queryForm" inline>
           <el-form-item label="权限名称">
             <el-input
@@ -334,7 +327,7 @@ async function handleCreatePermission() {
             <el-button :icon="Refresh" @click="resetSearch">
               重置
             </el-button>
-            <el-button :icon="Plus" type="primary" @click="openCreateDialog">
+            <el-button v-if="canCreatePermission" :icon="Plus" type="primary" @click="openCreateDialog">
               创建权限
             </el-button>
           </el-form-item>
@@ -444,6 +437,7 @@ async function handleCreatePermission() {
             取消
           </el-button>
           <el-button
+            v-if="canCreatePermission"
             type="primary"
             :loading="creating"
             @click="handleCreatePermission"
@@ -452,7 +446,6 @@ async function handleCreatePermission() {
           </el-button>
         </template>
       </el-dialog>
-    </template>
   </section>
 </template>
 

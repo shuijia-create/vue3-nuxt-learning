@@ -1,4 +1,5 @@
 import type { AuthUser } from '~/server/services/users'
+import { requirePermissionCode } from '~/server/services/permissions'
 import { createWorkOrder } from '~/server/services/work-orders'
 import { throwServiceError } from '~/server/utils/service-error'
 import type {
@@ -25,6 +26,11 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<CreateWorkOrderBody>(event)
   // server/middleware/auth.ts 已经把登录用户写入 event.context.currentUser。
   const currentUser = event.context.currentUser as AuthUser | undefined
+  const requiredButtonCode = body.source === 'AI 草稿'
+    ? 'ai_work_order_draft.save_as_work_order'
+    : 'work_orders.create'
+
+  await requirePermissionCode(currentUser, requiredButtonCode)
 
   try {
     return {

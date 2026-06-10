@@ -1,4 +1,5 @@
 import type { AuthUser } from '~/server/services/users'
+import { requirePermissionCode } from '~/server/services/permissions'
 import { changeWorkOrderStatus } from '~/server/services/work-orders'
 import { throwServiceError } from '~/server/utils/service-error'
 import type { WorkOrderStatus } from '~/types/work-order'
@@ -14,6 +15,8 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<ChangeStatusBody>(event)
   // 状态流转必须知道操作人，用于写操作日志和站内通知。
   const currentUser = event.context.currentUser as AuthUser | undefined
+
+  await requirePermissionCode(currentUser, 'work_order_detail.change_status')
 
   try {
     return {

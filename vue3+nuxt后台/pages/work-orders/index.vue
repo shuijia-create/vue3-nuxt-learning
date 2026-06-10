@@ -4,6 +4,7 @@ import type { WorkOrderStatus, WorkOrderType } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
 import { useNotifications } from '~/composables/use-notifications'
 import { useWorkOrders } from '~/composables/use-work-orders'
+import { useAuthStore } from '~/stores/auth'
 import { getApiErrorMessage } from '~/utils/api/errors'
 
 definePageMeta({
@@ -32,11 +33,16 @@ const filterForm = reactive<WorkOrderFilterForm>({
 })
 const notificationActions = useNotifications()
 const workOrderActions = useWorkOrders()
+const auth = useAuthStore()
 
 const requestQuery = ref({
   type: undefined as WorkOrderType | undefined,
   status: undefined as WorkOrderStatus | undefined
 })
+const canSearchWorkOrders = computed(() => auth.hasButtonPermission('work_orders.search'))
+const canResetWorkOrders = computed(() => auth.hasButtonPermission('work_orders.reset'))
+const canCreateWorkOrder = computed(() => auth.hasButtonPermission('work_orders.create'))
+const canViewWorkOrderDetail = computed(() => auth.hasButtonPermission('work_orders.view_detail'))
 
 const { data, pending, error, refresh } = await useAsyncData('work-orders', () => {
   return workOrderActions.listWorkOrders(requestQuery.value)
@@ -134,6 +140,10 @@ function getStatusTagType(value: unknown) {
 }
 
 async function handleSearch() {
+  if (!canSearchWorkOrders.value) {
+    return
+  }
+
   requestQuery.value = {
     type: filterForm.type || undefined,
     status: filterForm.status || undefined
@@ -142,6 +152,10 @@ async function handleSearch() {
 }
 
 async function resetSearch() {
+  if (!canResetWorkOrders.value) {
+    return
+  }
+
   filterForm.type = ''
   filterForm.status = ''
   requestQuery.value = {
@@ -160,6 +174,10 @@ function resetCreateForm() {
 }
 
 function openCreateDialog() {
+  if (!canCreateWorkOrder.value) {
+    return
+  }
+
   createDialogVisible.value = true
   resetCreateForm()
 }
@@ -169,6 +187,10 @@ function closeCreateDialog() {
 }
 
 async function handleCreateSubmit() {
+  if (!canCreateWorkOrder.value) {
+    return
+  }
+
   await createFormRef.value?.validate()
 
   try {
@@ -199,7 +221,7 @@ async function handleCreateSubmit() {
         </p>
       </div>
 
-      <el-button type="primary" @click="openCreateDialog">
+      <el-button v-if="canCreateWorkOrder" type="primary" @click="openCreateDialog">
         新建工单
       </el-button>
     </div>
@@ -239,10 +261,10 @@ async function handleCreateSubmit() {
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+          <el-button v-if="canSearchWorkOrders" type="primary" @click="handleSearch">
             查询
           </el-button>
-          <el-button @click="resetSearch">
+          <el-button v-if="canResetWorkOrders" @click="resetSearch">
             重置
           </el-button>
         </el-form-item>
@@ -282,6 +304,7 @@ async function handleCreateSubmit() {
 
         <template #actions="{ row }">
           <el-button
+            v-if="canViewWorkOrderDetail"
             link
             type="primary"
             @click="navigateTo(`/work-orders/${String(row.id)}`)"
@@ -347,7 +370,7 @@ async function handleCreateSubmit() {
         <el-button @click="closeCreateDialog">
           取消
         </el-button>
-        <el-button type="primary" @click="handleCreateSubmit">
+        <el-button v-if="canCreateWorkOrder" type="primary" @click="handleCreateSubmit">
           提交
         </el-button>
       </template>

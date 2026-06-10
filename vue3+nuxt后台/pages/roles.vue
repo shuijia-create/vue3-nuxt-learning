@@ -25,7 +25,8 @@ const authActions = useAuth()
 
 await callOnce('current-user', () => authActions.fetchCurrentUser())
 
-const isSuperAdmin = computed(() => auth.user?.roles.includes('super_admin') ?? false)
+const canCreateRole = computed(() => auth.hasButtonPermission('roles.create'))
+const canSaveRolePermissions = computed(() => auth.hasButtonPermission('roles.save_permissions'))
 const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
 const queryForm = reactive<RoleQueryForm>({
@@ -133,10 +134,6 @@ const {
   error: rolesError,
   refresh: refreshRoles
 } = await useAsyncData('roles', async () => {
-  if (!isSuperAdmin.value) {
-    return { list: [] }
-  }
-
   return requestFetch<{ list: RoleListItem[] }>('/api/roles')
 })
 
@@ -146,13 +143,6 @@ const {
   error: permissionsError,
   refresh: refreshPermissions
 } = await useAsyncData('role-permissions', async () => {
-  if (!isSuperAdmin.value) {
-    return {
-      list: [],
-      rolePermissionIds: {}
-    } satisfies PermissionsResponse
-  }
-
   return requestFetch<PermissionsResponse>('/api/permissions')
 })
 
@@ -271,6 +261,10 @@ function resetCreateForm() {
 }
 
 function openCreateDialog() {
+  if (!canCreateRole.value) {
+    return
+  }
+
   createDialogVisible.value = true
   resetCreateForm()
 }
@@ -285,6 +279,10 @@ function handleRolePageSizeChange(value: number) {
 }
 
 function openPermissionDrawer(role: RoleListItem) {
+  if (!canSaveRolePermissions.value) {
+    return
+  }
+
   selectedRoleCode.value = role.code
   selectedPermissionIds.value = [
     ...(permissionsData.value?.rolePermissionIds?.[role.code] ?? [])
@@ -304,6 +302,10 @@ function openPermissionDrawerByRow(row: BaseTableRow) {
 }
 
 function handlePermissionChange(row: PermissionTreeItem, checked: boolean) {
+  if (!canSaveRolePermissions.value) {
+    return
+  }
+
   const ids = new Set(selectedPermissionIds.value)
 
   if (checked) {
@@ -328,7 +330,7 @@ function handlePermissionCheckboxChange(row: BaseTableRow, checked: unknown) {
 }
 
 function selectAllPermissions() {
-  if (isBuiltInSuperAdmin.value) {
+  if (isBuiltInSuperAdmin.value || !canSaveRolePermissions.value) {
     return
   }
 
@@ -336,7 +338,7 @@ function selectAllPermissions() {
 }
 
 function clearAllPermissions() {
-  if (isBuiltInSuperAdmin.value) {
+  if (isBuiltInSuperAdmin.value || !canSaveRolePermissions.value) {
     return
   }
 
@@ -354,6 +356,10 @@ function getErrorMessage(error: unknown) {
 }
 
 async function handleCreateRole() {
+  if (!canCreateRole.value) {
+    return
+  }
+
   await createFormRef.value?.validate()
 
   creating.value = true
@@ -376,6 +382,10 @@ async function handleCreateRole() {
 }
 
 async function handleSaveRolePermissions() {
+  if (!canSaveRolePermissions.value) {
+    return
+  }
+
   if (!selectedRoleCode.value) {
     return
   }
@@ -413,15 +423,7 @@ async function handleSaveRolePermissions() {
       角色管理
     </h1>
 
-    <el-result
-      v-if="!isSuperAdmin"
-      icon="warning"
-      title="无权访问"
-      sub-title="只有超级管理员可以管理角色"
-    />
-
-    <template v-else>
-      <el-card class="query-card" shadow="never">
+    <el-card class="query-card" shadow="never">
         <el-form :model="queryForm" inline>
           <el-form-item label="角色名称">
             <el-input
@@ -450,7 +452,7 @@ async function handleSaveRolePermissions() {
             <el-button :icon="Refresh" @click="resetSearch">
               重置
             </el-button>
-            <el-button :icon="Plus" type="primary" @click="openCreateDialog">
+            <el-button v-if="canCreateRole" :icon="Plus" type="primary" @click="openCreateDialog">
               创建角色
             </el-button>
           </el-form-item>
@@ -494,6 +496,7 @@ async function handleSaveRolePermissions() {
 
           <template #actions="{ row }">
             <el-button
+              v-if="canSaveRolePermissions"
               link
               type="primary"
               @click="openPermissionDrawerByRow(row)"
@@ -539,6 +542,7 @@ async function handleSaveRolePermissions() {
             取消
           </el-button>
           <el-button
+            v-if="canCreateRole"
             type="primary"
             :loading="creating"
             @click="handleCreateRole"
@@ -579,14 +583,14 @@ async function handleSaveRolePermissions() {
           <div class="permission-toolbar-actions">
             <el-button
               size="small"
-              :disabled="isBuiltInSuperAdmin"
+              :disabled="isBuiltInSuperAdmin || !canSaveRolePermissions"
               @click="selectAllPermissions"
             >
               全选
             </el-button>
             <el-button
               size="small"
-              :disabled="isBuiltInSuperAdmin"
+              :disabled="isBuiltInSuperAdmin || !canSaveRolePermissions"
               @click="clearAllPermissions"
             >
               清空
@@ -620,7 +624,7 @@ async function handleSaveRolePermissions() {
           <template #permissionChecked="{ row }">
             <el-checkbox
               :model-value="isPermissionChecked(row)"
-              :disabled="isBuiltInSuperAdmin"
+              :disabled="isBuiltInSuperAdmin || !canSaveRolePermissions"
               @change="handlePermissionCheckboxChange(row, $event)"
             />
           </template>
@@ -631,6 +635,7 @@ async function handleSaveRolePermissions() {
             取消
           </el-button>
           <el-button
+            v-if="canSaveRolePermissions"
             type="primary"
             :disabled="isBuiltInSuperAdmin"
             :loading="saving"
@@ -640,7 +645,6 @@ async function handleSaveRolePermissions() {
           </el-button>
         </div>
       </el-drawer>
-    </template>
   </section>
 </template>
 

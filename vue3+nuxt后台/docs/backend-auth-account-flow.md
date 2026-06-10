@@ -11,9 +11,9 @@
 3. 后端用私钥解密密码，再去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
 4. 校验成功后，后端生成一个随机 token，写入 `httpOnly` cookie，不返回给前端 JavaScript。
 5. 浏览器后续请求接口时自动带上 cookie。
-6. `POST /api/login` 和 `GET /api/me` 都会返回 getInfo：`user`、`menus`、`pagePermissions`、`buttonPermissions`。
+6. `POST /api/login` 和 `GET /api/me` 都会返回 getInfo：`user`、`routes`、`buttons`。
 7. `server/middleware/auth.ts` 先用 token 找到当前用户名，再查数据库得到当前用户。
-8. 创建账号时，只有 `super_admin` 可以调用 `POST /api/users`。
+8. 创建账号时，服务端会校验当前用户是否拥有 `accounts.create` 按钮权限。
 9. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
 
 ## 后端文件分别是干嘛的
@@ -43,14 +43,12 @@ import { prisma } from '~/server/utils/prisma'
 
 然后通过 `prisma.user.findUnique()`、`prisma.user.create()` 这类方法操作数据库。
 
-### `server/utils/password.ts`
+### `server/services/users.ts` 里的 bcrypt 调用
 
-这是密码处理工具。
+当前项目不再单独封装 `server/utils/password.ts`。用户 service 直接引入 `bcryptjs`，在真实调用位置完成密码处理：
 
-里面有两个方法：
-
-- `hashPassword(password)`：创建账号时，把明文密码变成 bcrypt 哈希。
-- `verifyPassword(password, passwordHash)`：登录时，比较用户输入的明文密码和数据库里的哈希是否匹配。
+- 登录时直接用 `bcrypt.compare(password, user.passwordHash)` 比较用户输入的密码和数据库里的哈希是否匹配。
+- 创建账号时直接用 `bcrypt.hash(password, bcryptSaltRounds)` 把解密后的密码变成 bcrypt 哈希。
 
 真实项目里不要存“可解密密码”，而是存单向哈希。也就是说，数据库里的 `password_hash` 不能还原成原密码，只能用来校验。
 
@@ -75,8 +73,8 @@ import { prisma } from '~/server/utils/prisma'
 - `findAuthUserByUsername(username)`：鉴权用，根据用户名重新查当前用户。
 - `listUsers()`：账号管理页面用，返回用户列表，但不返回 `passwordHash`。
 - `createUserAccount(input)`：创建账号用，先 hash 密码，再写入 `users` 表。
-- `isSuperAdmin(user)`：判断当前用户是不是超级管理员。
-- `isUserRole(role)`：判断前端传来的角色是不是合法角色。
+- `requirePermissionCode(user, code)`：按后端权限表校验当前用户是否拥有某个页面或按钮权限。
+- `roleExists(role)`：判断前端传来的角色是否存在于角色表。
 
 ### `server/services/auth.ts`
 
@@ -129,7 +127,7 @@ POST /api/login
 3. 调用 `findUserByCredentials()` 查数据库并校验密码。
 4. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
 5. 用 `setCookie()` 把 token 写入 `httpOnly` cookie。
-6. 查询当前用户的菜单、页面路由权限和按钮权限，和安全用户信息一起返回给前端。
+6. 查询当前用户的后端路由配置和按钮权限，和安全用户信息一起返回给前端。
 
 返回格式大概是：
 
@@ -141,9 +139,8 @@ POST /api/login
     "nickname": "管理员",
     "roles": ["super_admin"]
   },
-  "menus": [],
-  "pagePermissions": [],
-  "buttonPermissions": []
+  "routes": [],
+  "buttons": []
 }
 ```
 
@@ -183,9 +180,8 @@ GET /api/me
 
 ```text
 user
-menus
-pagePermissions
-buttonPermissions
+routes
+buttons
 ```
 
 ### `server/api/logout.post.ts`
@@ -209,7 +205,7 @@ POST /api/logout
 GET /api/users
 ```
 
-只有 `super_admin` 可以访问。普通管理员即使手动请求这个接口，也会被服务端返回 403。
+必须拥有 `accounts.page` 页面权限。即使前端页面被隐藏，手动请求接口也会在服务端被 403 拦截。
 
 ### `server/api/users/index.post.ts`
 
@@ -219,7 +215,7 @@ GET /api/users
 POST /api/users
 ```
 
-只有 `super_admin` 可以创建账号。
+必须拥有 `accounts.create` 按钮权限。
 
 它会校验：
 
@@ -227,7 +223,7 @@ POST /api/users
 - `encryptedPassword` 是否能被服务端私钥解密。
 - 解密后的密码是否至少 6 位。
 - 昵称是否为空。
-- 角色是否只能是 `admin` 或 `super_admin`。
+- 角色是否存在于 `roles` 表。
 - 用户名是否已经存在。
 
 校验通过后，调用 `createUserAccount()` 写入数据库。真正写入前，解密后的密码会先变成 bcrypt 哈希。
@@ -257,7 +253,7 @@ server/api/login.post.ts
 server/services/users.ts
   |
   | prisma.user.findUnique({ username })
-  | verifyPassword(password, user.passwordHash)
+  | bcrypt.compare(password, user.passwordHash)
   v
 MySQL users 表
   |
@@ -271,7 +267,7 @@ server/services/auth.ts
 server/api/login.post.ts
   |
   | setCookie("nuxt-admin-token", token, { httpOnly: true })
-  | return { user, menus, pagePermissions, buttonPermissions }
+  | return { user, routes, buttons }
   v
 浏览器自动保存 httpOnly cookie，前端 store 保存 user 和权限快照
 ```
@@ -322,14 +318,14 @@ server/middleware/auth.ts
   v
 server/api/users/index.post.ts
   |
-  | isSuperAdmin(currentUser)
+  | requirePermissionCode(currentUser, 'accounts.create')
   | decryptPassword(encryptedPassword)
   | 校验 username/解密后的密码长度/nickname/role
   | 查询 username 是否已存在
   v
 server/services/users.ts
   |
-  | hashPassword(password)
+  | bcrypt.hash(password, bcryptSaltRounds)
   | prisma.user.create({ passwordHash, ... })
   v
 MySQL users 表
@@ -352,7 +348,7 @@ POST /api/users
 ```text
 登录或刷新页面
   -> GET /api/me
-  -> 返回 user、menus、pagePermissions、buttonPermissions
+  -> 返回 user、routes、buttons
   -> stores/auth.ts 缓存权限快照
 middleware/auth.global.ts
   -> auth.canAccessPage('/accounts')
@@ -364,9 +360,7 @@ middleware/auth.global.ts
 接口访问还要继续在 API 层兜底：
 
 ```ts
-if (!isSuperAdmin(event.context.currentUser)) {
-  throw createError({ statusCode: 403 })
-}
+await requirePermissionCode(event.context.currentUser, 'accounts.create')
 ```
 
 这就是“前端控制显示，后端控制安全”。
@@ -380,9 +374,9 @@ if (!isSuperAdmin(event.context.currentUser)) {
 - token 是随机生成的。
 - token 会写入 cookie。
 - 后端接口会统一鉴权。
-- 创建账号需要超级管理员。
+- 创建账号需要 `accounts.create` 按钮权限。
 - 角色和权限已经落到 `roles`、`permissions`、`role_permissions` 表。
-- 登录和刷新时会通过后端读取权限表，返回菜单、页面路由权限和按钮权限；页面跳转时前端用本地权限快照判断。
+- 登录和刷新时会通过后端读取权限表，返回后端路由配置和按钮权限；页面跳转时前端用本地权限快照判断。
 
 但它仍然可以继续升级：
 

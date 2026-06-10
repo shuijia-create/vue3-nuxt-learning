@@ -17,7 +17,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const isLoginPage = to.path === '/login'
 
   // 判断当前用户是否已登录，并在第一次进入后台时通过 /api/me 拉取 getInfo。
-  // getInfo 会一次性返回用户信息、菜单、页面路由权限和按钮权限。
+  // getInfo 会一次性返回用户信息、后端路由配置和按钮权限配置。
   // - 白名单页面（登录页、首页）不需要检查登录态，省掉一次不必要的 /api/me 请求。
   // - 其他页面：先从 store 缓存取，缓存没有就调 /api/me 向后端确认并缓存权限快照。
   const currentUser = whiteList.includes(to.path)
@@ -52,9 +52,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  // ========== 第三道门：页面权限本地校验 ==========
-  // 页面权限已经由 /api/me 返回并缓存在 auth store 里。
-  // 路由跳转时前端只做本地判断，不再每次请求后端页面权限接口。
+  // ========== 第三道门：后端路由配置本地校验 ==========
+  // 可访问路由已经由 /api/me 返回并缓存在 auth store 里。
+  // 路由跳转时前端只按后端返回的 routes 判断，不再自己定义权限路由。
   if (!auth.canAccessPage(to.path)) {
     return abortNavigation(createError({
       statusCode: 403,

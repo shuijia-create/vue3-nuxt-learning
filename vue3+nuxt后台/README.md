@@ -60,7 +60,7 @@ server/services/permissions.ts
   ↓ 查询
 permissions 表 + role_permissions 表
   ↓
-返回 user、menus、pagePermissions、buttonPermissions
+返回 user、routes、buttons
 ```
 
 也就是说，`SidebarMenu.vue` 只负责从 `stores/auth.ts` 读取菜单并渲染出来；真正决定“某个角色能不能看到某个页面”的地方是数据库里的权限表和角色权限表。
@@ -89,7 +89,7 @@ utils/admin-page-title.ts
 ```text
 middleware/auth.global.ts
   ↓ 读取
-stores/auth.ts 里的 pagePermissions
+stores/auth.ts 里的 routes
   ↓ 本地判断
 auth.canAccessPage('/accounts')
 ```
@@ -887,7 +887,7 @@ pages/login.vue
   负责登录表单、loading、错误提示、登录成功后的跳转。
 
 stores/auth.ts
-  只负责登录状态和权限快照，例如 user、menus、pagePermissions、buttonPermissions、isLoggedIn。
+  只负责登录状态和权限快照，例如 user、routes、buttons、menus、isLoggedIn。
 
 composables/use-auth.ts
   负责登录、退出、拉取当前用户这些认证用例，并在成功后更新 auth store。
@@ -998,7 +998,7 @@ setCookie(event, 'nuxt-admin-token', token, {
 })
 ```
 
-然后返回 getInfo 结构：`user`、`menus`、`pagePermissions`、`buttonPermissions`。token 不返回给前端 JavaScript。
+然后返回 getInfo 结构：`user`、`routes`、`buttons`。token 不返回给前端 JavaScript。
 
 ### 3. 登录成功后进入后台
 
@@ -1046,7 +1046,7 @@ GET /api/me
 server/api/me.get.ts
 ```
 
-服务端会检查 cookie 里的 `nuxt-admin-token`。如果 token 不正确，返回 401；如果正确，返回当前用户信息、菜单、页面路由权限和按钮权限。
+服务端会检查 cookie 里的 `nuxt-admin-token`。如果 token 不正确，返回 401；如果正确，返回当前用户信息、后端路由配置和按钮权限。
 
 这里有一个 Nuxt SSR 重点：
 

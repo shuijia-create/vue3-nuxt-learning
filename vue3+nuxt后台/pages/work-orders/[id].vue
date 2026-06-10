@@ -3,6 +3,7 @@ import type { WorkOrderStatus } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
 import { useNotifications } from '~/composables/use-notifications'
 import { useWorkOrders } from '~/composables/use-work-orders'
+import { useAuthStore } from '~/stores/auth'
 import { getApiErrorMessage } from '~/utils/api/errors'
 
 definePageMeta({
@@ -13,6 +14,7 @@ const route = useRoute()
 const id = String(route.params.id ?? '')
 const notificationActions = useNotifications()
 const workOrderActions = useWorkOrders()
+const auth = useAuthStore()
 const { data, pending, error, refresh } = await useAsyncData(`work-order-${id}`, () => {
   return workOrderActions.fetchWorkOrderDetail(id)
 })
@@ -22,6 +24,7 @@ const hasAiSuggestion = computed(() => {
   return workOrder.value?.source === 'AI 草稿' && !!workOrder.value.aiSuggestion
 })
 const updatingStatus = ref(false)
+const canChangeWorkOrderStatus = computed(() => auth.hasButtonPermission('work_order_detail.change_status'))
 
 const statusTypeMap: Record<WorkOrderStatus, 'warning' | 'primary' | 'danger'> = {
   待处理: 'warning',
@@ -55,7 +58,7 @@ useHead(() => ({
 }))
 
 async function handleChangeStatus(status: WorkOrderStatus) {
-  if (!workOrder.value) {
+  if (!workOrder.value || !canChangeWorkOrderStatus.value) {
     return
   }
 
@@ -140,13 +143,16 @@ async function handleChangeStatus(status: WorkOrderStatus) {
 
       <div class="detail-actions">
         <el-button
-          v-if="nextStatusAction"
+          v-if="nextStatusAction && canChangeWorkOrderStatus"
           type="primary"
           :loading="updatingStatus"
           @click="handleChangeStatus(nextStatusAction.status)"
         >
           {{ nextStatusAction.label }}
         </el-button>
+        <el-tag v-else-if="nextStatusAction" type="info">
+          暂无状态流转权限
+        </el-tag>
         <el-tag v-else type="success">
           当前工单等待确认
         </el-tag>

@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AuthInfo, AuthPagePermission, AuthUser } from '~/types/auth'
-import type { MenuRouteItem } from '~/types/menu'
+import type { AuthButtonPermission, AuthInfo, AuthRouteItem, AuthUser } from '~/types/auth'
 
 function normalizePagePath(path: string) {
   const pathWithoutQuery = path.split('?')[0]?.split('#')[0] ?? '/'
@@ -36,19 +35,18 @@ function isPagePathMatched(permissionPath: string, requestPath: string) {
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
-  const menus = ref<MenuRouteItem[]>([])
-  const pagePermissions = ref<AuthPagePermission[]>([])
-  const buttonPermissions = ref<string[]>([])
+  const routes = ref<AuthRouteItem[]>([])
+  const buttons = ref<AuthButtonPermission[]>([])
   const authResolved = ref(false)
 
   const isLoggedIn = computed(() => Boolean(user.value))
-  const buttonPermissionSet = computed(() => new Set(buttonPermissions.value))
+  const menus = computed(() => routes.value.filter(route => route.showInMenu))
+  const buttonPermissionSet = computed(() => new Set(buttons.value.map(button => button.code)))
 
   function setAuthInfo(nextInfo: AuthInfo) {
     user.value = nextInfo.user
-    menus.value = nextInfo.menus
-    pagePermissions.value = nextInfo.pagePermissions
-    buttonPermissions.value = nextInfo.buttonPermissions
+    routes.value = nextInfo.routes
+    buttons.value = nextInfo.buttons
     authResolved.value = true
   }
 
@@ -59,9 +57,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearUser() {
     user.value = null
-    menus.value = []
-    pagePermissions.value = []
-    buttonPermissions.value = []
+    routes.value = []
+    buttons.value = []
     authResolved.value = true
   }
 
@@ -70,8 +67,8 @@ export const useAuthStore = defineStore('auth', () => {
       return false
     }
 
-    return pagePermissions.value.some((permission) => {
-      return isPagePathMatched(permission.path, path)
+    return routes.value.some((route) => {
+      return isPagePathMatched(route.path, path)
     })
   }
 
@@ -81,9 +78,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
+    routes,
     menus,
-    pagePermissions,
-    buttonPermissions,
+    buttons,
     authResolved,
     isLoggedIn,
     setAuthInfo,
