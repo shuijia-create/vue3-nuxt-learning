@@ -191,8 +191,6 @@ export async function deleteAuthSession(token: string | undefined) {
 
 // 不需要登录也能访问的接口白名单。
 export const publicApiPaths = [
-  // 前端登录前需要先拿公钥加密密码，所以公钥接口必须公开。
-  '/api/auth/password-key',
   // 登录接口必须公开，否则用户还没 token 就无法登录。
   '/api/login',
   // 退出接口允许公开调用，服务端会根据 cookie 尝试删除 session。

@@ -896,7 +896,7 @@ utils/api/auth.ts 或 services/auth.ts
   负责封装接口请求，例如 loginApi、fetchMeApi、logoutApi。
 
 server/api/login.post.ts
-  负责真正的服务端登录逻辑，例如解密密码、查用户、校验密码、创建 Redis session、返回 token，并写入 SSR 刷新需要的 cookie。
+  负责真正的服务端登录逻辑，例如读取用户名和密码、查用户、校验 bcrypt 哈希、创建 Redis session、返回 token，并写入 SSR 刷新需要的 cookie。
 ```
 
 也就是说，store 不应该写 `login()` 这种业务用例。更清晰的做法是：API 层只发请求，composable 组织登录流程，store 只保存状态：
@@ -904,13 +904,11 @@ server/api/login.post.ts
 ```ts
 // utils/api/auth.ts
 export async function loginApi(form: LoginForm) {
-  const encryptedPassword = await encryptPasswordForRequest(form.password)
-
   return $fetch<LoginResponse>('/api/login', {
     method: 'POST',
     body: {
       username: form.username,
-      encryptedPassword
+      password: form.password
     }
   })
 }
@@ -984,7 +982,7 @@ server/api/login.post.ts
 - 用户名：`admin`
 - 密码：`123456`
 
-这里的 `123456` 只存在于登录表单和本次服务端请求内存里。前端提交前会先请求 `/api/auth/password-key` 拿 RSA 公钥，再把密码加密成 `encryptedPassword` 提交；后端用私钥解密后，再用 bcrypt 和 `users.password_hash` 做单向哈希校验。
+这里的 `123456` 只存在于登录表单和本次 HTTPS 请求内存里。前端直接提交 `username` 和 `password` 到 `/api/login`；后端用 bcrypt 和 `users.password_hash` 做单向哈希校验。
 
 账号密码正确时，服务端写入 cookie：
 
@@ -1130,7 +1128,7 @@ utils/api/auth.ts
 server/api/login.post.ts
 ```
 
-登录接口，先解密 `encryptedPassword`，再读取数据库用户，用 bcrypt 校验密码哈希，并写入 cookie。
+登录接口，读取 `username` 和 `password`，再读取数据库用户，用 bcrypt 校验密码哈希，并写入 cookie。
 
 ```text
 server/api/me.get.ts

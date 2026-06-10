@@ -164,11 +164,13 @@ npm run build
 
 ## 学习记录
 
+- 2026-06-10：把登录和账号创建改回标准 HTTPS 链路：前端直接提交 `password`，后端用 `bcrypt.compare` 校验登录、用 `bcrypt.hash` 保存新账号密码哈希，移除前端 RSA 公钥配置和密码加密工具。
+- 2026-06-10：曾尝试移除登录前置公钥接口并保留前端 RSA 加密，随后按标准企业后台实践改回 HTTPS 传输密码 + 后端 bcrypt 校验。
 - 2026-06-10：修正登录/getInfo 职责边界：`POST /api/login` 只返回 token 并创建 session，`GET /api/me` 作为唯一 getInfo 返回 `user`、`routes`、`buttons`；登录成功后带 token 调 getInfo，刷新页面时通过 cookie 调 getInfo，以获取最新权限。
 - 2026-06-10：把 getInfo 权限快照收敛为后端返回的 `routes` 和 `buttons`，前端菜单、页面跳转、业务按钮都只消费后端配置；服务端接口按权限码兜底校验。
 - 2026-06-10：删除单独的 `server/utils/password.ts` 封装，改为在 `server/services/users.ts` 的登录校验和账号创建位置直接调用 `bcrypt.compare` 与 `bcrypt.hash`。
 - 2026-06-09：把 `/api/me` 升级为 getInfo 接口，返回用户信息、后端路由配置和按钮权限；前端路由跳转改为本地权限判断，不再每次请求页面权限接口。
-- 2026-06-09：新增 `docs/login-flow.md`，把前端登录、密码加密、后端解密、bcrypt 校验、Redis session、页面 middleware 和服务端 API 鉴权串成一条阅读链路。
+- 2026-06-09：新增 `docs/login-flow.md`，把前端登录、bcrypt 校验、Redis session、页面 middleware 和服务端 API 鉴权串成一条阅读链路。
 - 2026-05-22：创建 AI 工单草稿接口，前端可以调用后端生成结构化草稿。
 - 2026-05-22：AI 草稿支持一键保存为正式工单，形成“AI 草稿 -> 工单列表”的业务闭环。
 - 2026-05-22：简化 `work-order-draft.post.ts`，去掉无用推断逻辑，保留最小后端接口示例。
@@ -209,5 +211,5 @@ npm run build
 - 2026-06-09：给工单、通知、操作日志和 AI 草稿等后端核心逻辑补充学习注释，重点解释 API 层、service 层、Prisma 数据转换和业务副作用边界。
 - 2026-06-09：修正权限边界，明确菜单和页面访问都以 `permissions`、`role_permissions` 数据库表为准；前端文件只负责页面实现和菜单渲染，不作为权限来源。
 - 2026-06-09：收紧账号密码安全边界，只有登录校验读取 `passwordHash`，其他用户查询只返回安全字段，并补充“传输加密、bcrypt 防止明文落库”的学习说明。
-- 2026-06-09：把登录和账号创建改为“前端 RSA-OAEP 公钥加密密码 -> 后端私钥解密 -> bcrypt 校验/落库”，请求体不再传原始明文密码。
+- 2026-06-09：曾尝试把登录和账号创建改为前端 RSA-OAEP 加密密码；后续已按 HTTPS + bcrypt 标准链路收敛。
 - 2026-06-09：删除不再使用的旧 data 目录文件，把登录 session、cookie 名和 API 白名单迁到 `server/services/auth.ts`，并给认证相关 `auth.ts` 补充逐行学习注释。

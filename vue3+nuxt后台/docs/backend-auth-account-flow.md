@@ -6,16 +6,15 @@
 
 当前项目的后端逻辑是：
 
-1. 前端先调用 `GET /api/auth/password-key` 获取 RSA 公钥。
-2. 前端用公钥把密码加密成 `encryptedPassword`，再调用 `POST /api/login`。
-3. 后端用私钥解密密码，再去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
-4. 校验成功后，后端生成一个随机 token，登录接口把 token 返回给前端。
-5. 当前 Nuxt SSR 学习项目也会把 token 写入 `httpOnly` cookie，方便刷新页面时服务端恢复登录态。
-6. 浏览器后续请求接口时自动带上 cookie。
-7. 只有 `GET /api/me` 返回 getInfo：`user`、`routes`、`buttons`。
-8. `server/middleware/auth.ts` 先从 Bearer token 或 cookie 里取 token，找到当前用户名，再查数据库得到当前用户。
-9. 创建账号时，服务端会校验当前用户是否拥有 `accounts.create` 按钮权限。
-10. 创建账号时，前端同样只提交 `encryptedPassword`；后端解密后再写入 bcrypt 哈希，不会保存明文密码。
+1. 前端通过 HTTPS 调用 `POST /api/login`，提交 `username` 和 `password`。
+2. 后端去 MySQL 的 `users` 表查用户，用 bcrypt 校验密码。
+3. 校验成功后，后端生成一个随机 token，登录接口把 token 返回给前端。
+4. 当前 Nuxt SSR 学习项目也会把 token 写入 `httpOnly` cookie，方便刷新页面时服务端恢复登录态。
+5. 浏览器后续请求接口时自动带上 cookie。
+6. 只有 `GET /api/me` 返回 getInfo：`user`、`routes`、`buttons`。
+7. `server/middleware/auth.ts` 先从 Bearer token 或 cookie 里取 token，找到当前用户名，再查数据库得到当前用户。
+8. 创建账号时，服务端会校验当前用户是否拥有 `accounts.create` 按钮权限。
+9. 创建账号时，前端提交初始 `password`；后端写库前生成 bcrypt 哈希，不会保存明文密码。
 
 ## 后端文件分别是干嘛的
 
@@ -49,20 +48,11 @@ import { prisma } from '~/server/utils/prisma'
 当前项目不再单独封装 `server/utils/password.ts`。用户 service 直接引入 `bcryptjs`，在真实调用位置完成密码处理：
 
 - 登录时直接用 `bcrypt.compare(password, user.passwordHash)` 比较用户输入的密码和数据库里的哈希是否匹配。
-- 创建账号时直接用 `bcrypt.hash(password, bcryptSaltRounds)` 把解密后的密码变成 bcrypt 哈希。
+- 创建账号时直接用 `bcrypt.hash(password, bcryptSaltRounds)` 把请求里的密码变成 bcrypt 哈希。
 
 真实项目里不要存“可解密密码”，而是存单向哈希。也就是说，数据库里的 `password_hash` 不能还原成原密码，只能用来校验。
 
-当前项目的请求体不会直接传 `password`，而是传 `encryptedPassword`。后端解密后得到的原始密码只存在于本次请求内存里，用完就结束；数据库仍然只保存 bcrypt 哈希。
-
-### `server/utils/password-encryption.ts`
-
-这是密码传输加密工具。
-
-- `getPasswordPublicKey()`：返回前端加密用的 RSA 公钥。
-- `decryptPassword(encryptedPassword)`：后端用私钥解密前端提交的密文。
-
-本地学习时，如果没有配置密钥，服务端会自动生成内存里的 RSA 密钥对。生产环境应该通过 `PASSWORD_PUBLIC_KEY` 和 `PASSWORD_PRIVATE_KEY` 配置固定密钥，避免多实例或重启后密钥不一致。
+当前项目的请求体会通过 HTTPS 传输 `password`。后端只在本次请求内存里使用这个密码；数据库仍然只保存 bcrypt 哈希。
 
 ### `server/services/users.ts`
 
@@ -123,12 +113,11 @@ POST /api/login
 
 它做六件事：
 
-1. 用 `readBody()` 读取前端传来的 `username` 和 `encryptedPassword`。
-2. 用服务端私钥解密出本次登录密码。
-3. 调用 `findUserByCredentials()` 查数据库并校验密码。
-4. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
-5. 用 `setCookie()` 把 token 写入 `httpOnly` cookie。
-6. 返回本次登录生成的 token；用户信息和权限不从登录接口返回。
+1. 用 `readBody()` 读取前端传来的 `username` 和 `password`。
+2. 调用 `findUserByCredentials()` 查数据库并校验密码。
+3. 登录成功后调用 `await createAuthSession()` 生成 token，并保存服务端 session。
+4. 用 `setCookie()` 把 token 写入 `httpOnly` cookie。
+5. 返回本次登录生成的 token；用户信息和权限不从登录接口返回。
 
 返回格式大概是：
 
@@ -214,34 +203,23 @@ POST /api/users
 它会校验：
 
 - 用户名格式是否合法。
-- `encryptedPassword` 是否能被服务端私钥解密。
-- 解密后的密码是否至少 6 位。
+- `password` 是否至少 6 位。
 - 昵称是否为空。
 - 角色是否存在于 `roles` 表。
 - 用户名是否已经存在。
 
-校验通过后，调用 `createUserAccount()` 写入数据库。真正写入前，解密后的密码会先变成 bcrypt 哈希。
+校验通过后，调用 `createUserAccount()` 写入数据库。真正写入前，请求里的密码会先变成 bcrypt 哈希。
 
 ## 登录写入 httpOnly cookie 的完整流程
 
 ```text
 浏览器登录页
   |
-  | GET /api/auth/password-key
-  | 返回 RSA publicKey
-  v
-utils/password-encryption.ts
-  |
-  | encryptPasswordForRequest("123456")
-  v
-浏览器登录页
-  |
   | POST /api/login
-  | body: { username: "admin", encryptedPassword: "..." }
+  | body: { username: "admin", password: "123456" }
   v
 server/api/login.post.ts
   |
-  | decryptPassword(encryptedPassword)
   | 调用 findUserByCredentials()
   v
 server/services/users.ts
@@ -296,14 +274,11 @@ event.context.currentUser
 
 ```text
 超级管理员打开 /accounts
-  |
-  | GET /api/auth/password-key
-  | 用 publicKey 加密初始密码
   v
 账号管理页
   |
   | POST /api/users
-  | body: { username, encryptedPassword, nickname, role }
+  | body: { username, password, nickname, role }
   v
 server/middleware/auth.ts
   |
@@ -313,8 +288,7 @@ server/middleware/auth.ts
 server/api/users/index.post.ts
   |
   | requirePermissionCode(currentUser, 'accounts.create')
-  | decryptPassword(encryptedPassword)
-  | 校验 username/解密后的密码长度/nickname/role
+  | 校验 username/password 长度/nickname/role
   | 查询 username 是否已存在
   v
 server/services/users.ts

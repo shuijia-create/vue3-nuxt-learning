@@ -1,7 +1,5 @@
 // 引入登录表单、接口请求体、接口返回值这些类型，让 API 层和页面层保持类型一致。
 import type { LoginForm, LoginPayload, LoginResponse, LogoutResponse, MeResponse } from '~/types/auth'
-// 引入前端密码加密工具，保证请求体只提交 encryptedPassword，不提交原始密码。
-import { encryptPasswordForRequest } from '~/utils/password-encryption'
 
 // 定义当前项目里“可替换的 fetch 函数”类型；SSR 时会传 useRequestFetch，浏览器端用 $fetch。
 type ApiFetch = <T>(request: string, options?: Parameters<typeof $fetch>[1]) => Promise<T>
@@ -29,21 +27,19 @@ export function isUnauthorizedError(error: unknown) {
   return maybeError.statusCode === 401 || maybeError.response?.status === 401
 }
 
-// 登录接口请求：页面传入原始表单，API 层负责加密密码并提交给后端。
+// 登录接口请求：HTTPS 负责传输加密，后端只用 bcrypt 校验数据库里的密码哈希。
 export async function loginApi(form: LoginForm) {
-  // 组装真正发给后端的请求体；这里没有 password 字段。
+  // 组装真正发给后端的请求体。
   const payload: LoginPayload = {
-    // 用户名不加密，后端用它查询 users 表。
     username: form.username,
-    // 密码先用服务端公钥加密，后端再用私钥解密。
-    encryptedPassword: await encryptPasswordForRequest(form.password)
+    password: form.password
   }
 
   // 调用 Nuxt 后端登录接口；成功后后端会返回 token，并写入 SSR 需要的 httpOnly cookie。
   return $fetch<LoginResponse>('/api/login', {
     // 登录接口使用 POST，因为它会创建服务端 session。
     method: 'POST',
-    // body 只包含 username 和 encryptedPassword。
+    // body 只包含登录接口需要的账号和密码。
     body: payload
   })
 }

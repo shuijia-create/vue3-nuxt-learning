@@ -5,7 +5,7 @@ export type LoginForm = {
 
 export type LoginPayload = {
   username: string
-  encryptedPassword: string
+  password: string
 }
 
 export type AuthUser = {
@@ -42,8 +42,4 @@ export type MeResponse = AuthInfo
 
 export type LogoutResponse = {
   ok: true
-}
-
-export type PasswordPublicKeyResponse = {
-  publicKey: string
 }

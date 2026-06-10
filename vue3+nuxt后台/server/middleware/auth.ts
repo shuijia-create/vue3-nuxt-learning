@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // 登录、公钥、退出等公开接口不需要先登录。
+  // 登录、退出等公开接口不需要先登录。
   if (publicApiPaths.includes(pathname)) {
     // 命中白名单直接放行。
     return

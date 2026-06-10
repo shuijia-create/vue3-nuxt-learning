@@ -23,7 +23,7 @@ export type UserListItem = AuthUser & {
 
 type CreateUserInput = {
   username: string
-  // 这里是后端私钥解密后的原始密码，只在本次请求内存里用于生成 bcrypt 哈希。
+  // 这里是 HTTPS 请求里的原始密码，只在本次请求内存里用于生成 bcrypt 哈希。
   password: string
   nickname: string
   role: string
@@ -66,7 +66,7 @@ function toUserListItem(user: DbUserForList): UserListItem {
   }
 }
 
-// 登录接口使用：根据用户名查 users 表，再校验后端解密出的密码。
+// 登录接口使用：根据用户名查 users 表，再校验本次请求里的密码。
 // 登录时不应该插入用户；用户应该提前存在数据库里，这里只负责“查找 + 校验”。
 export async function findUserByCredentials(username: string, password: string) {
   // username 在 schema.prisma 里是 @unique，所以可以用 findUnique 精准查一条。
@@ -115,7 +115,7 @@ export async function listUsers() {
 }
 
 export async function createUserAccount(input: CreateUserInput) {
-  // 写入数据库前必须先把解密后的密码变成 bcrypt 哈希。
+  // 写入数据库前必须先把请求里的密码变成 bcrypt 哈希。
   // 数据库永远只保存 passwordHash，不保存用户输入的原始密码。
   const passwordHash = await bcrypt.hash(input.password, bcryptSaltRounds)
 

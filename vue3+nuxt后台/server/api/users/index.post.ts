@@ -5,11 +5,10 @@ import {
 } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
-import { decryptPassword } from '~/server/utils/password-encryption'
 
 type CreateUserBody = {
   username?: string
-  encryptedPassword?: string
+  password?: string
   nickname?: string
   role?: string
 }
@@ -21,20 +20,9 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<CreateUserBody>(event)
   const username = body.username?.trim() ?? ''
-  const encryptedPassword = body.encryptedPassword ?? ''
+  const password = body.password ?? ''
   const nickname = body.nickname?.trim() ?? ''
   const role = body.role ?? 'admin'
-
-  let password = ''
-
-  try {
-    password = encryptedPassword ? decryptPassword(encryptedPassword) : ''
-  } catch {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '密码加密数据不正确'
-    })
-  }
 
   if (!usernamePattern.test(username)) {
     throw createError({

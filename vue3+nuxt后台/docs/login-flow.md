@@ -8,21 +8,19 @@
 
 1. `pages/login.vue`：登录页面，表单提交入口。
 2. `composables/use-auth.ts`：登录、获取当前用户、退出登录这些认证用例。
-3. `utils/api/auth.ts`：前端认证 API 层，负责发请求和加密密码。
-4. `utils/password-encryption.ts`：前端用 RSA 公钥加密密码。
-5. `server/api/auth/password-key.get.ts`：后端返回 RSA 公钥。
-6. `server/api/login.post.ts`：后端登录接口，解密密码并创建 session。
-7. `server/services/users.ts`：查询 MySQL 用户，用 bcrypt 校验密码。
-8. `server/services/auth.ts`：Redis session、cookie 名、公开 API 白名单。
-9. `server/middleware/auth.ts`：服务端 API 真实鉴权。
-10. `middleware/auth.global.ts`：前端页面访问拦截，并用本地权限快照校验页面。
+3. `utils/api/auth.ts`：前端认证 API 层，负责发登录、getInfo、退出请求。
+4. `server/api/login.post.ts`：后端登录接口，读取密码并创建 session。
+5. `server/services/users.ts`：查询 MySQL 用户，用 bcrypt 校验密码。
+6. `server/services/auth.ts`：Redis session、cookie 名、公开 API 白名单。
+7. `server/middleware/auth.ts`：服务端 API 真实鉴权。
+8. `middleware/auth.global.ts`：前端页面访问拦截，并用本地权限快照校验页面。
 
 ## 当前架构决策
 
 - 项目结构：沿用当前 Nuxt 学习项目的分层，不额外抽复杂模块。
 - API client：前端使用 `utils/api/*` 封装 `$fetch`，页面不直接拼接口细节。
 - 登录态：`POST /api/login` 返回 token；当前 Nuxt SSR 学习项目同时写入 `httpOnly cookie`，方便刷新页面时服务端恢复登录态。
-- 密码传输：前端 RSA-OAEP 公钥加密，后端私钥解密，数据库仍然只保存 bcrypt 哈希。
+- 密码传输：依赖 HTTPS；前端提交 `password`，后端只用 bcrypt 校验数据库里的哈希。
 - getInfo：只有 `/api/me` 返回 `user`、`routes`、`buttons`；路由和按钮权限都来自后端权限表。
 - 权限边界：页面 middleware 负责跳转体验，服务端 middleware 和接口判断负责真正安全。
 
@@ -39,21 +37,14 @@ composables/use-auth.ts
   |
   v
 utils/api/auth.ts
-  调用 encryptPasswordForRequest(form.password)
-  |
-  v
-utils/password-encryption.ts
-  GET /api/auth/password-key 拿 RSA publicKey
-  用 Web Crypto RSA-OAEP 加密密码
-  返回 encryptedPassword
+  组装 { username, password }
   |
   v
 POST /api/login
-  body: { username, encryptedPassword }
+  body: { username, password }
   |
   v
 server/api/login.post.ts
-  decryptPassword(encryptedPassword)
   findUserByCredentials(username, password)
   |
   v
@@ -84,8 +75,8 @@ pages/login.vue
 
 重点记住：
 
-- 请求体不传原始明文密码，只传 `encryptedPassword`。
-- 后端解密出的密码只在本次请求内存里使用。
+- 请求体直接提交 `password`，传输安全交给 HTTPS。
+- 后端拿到的密码只在本次请求内存里使用。
 - 数据库里的 `users.password_hash` 仍然是 bcrypt 哈希。
 - token 由登录接口返回；为了 SSR 刷新恢复登录态，也会写入 `httpOnly cookie`。
 - 菜单、页面路由和按钮权限只从 getInfo 返回，登录成功后要带 login 返回的 token 再请求 `/api/me`。
@@ -128,62 +119,30 @@ pages/login.vue
 它是前端请求封装层：
 
 - `loginApi(form)`：把页面表单转换成接口请求体。
-- 登录前调用 `encryptPasswordForRequest(form.password)`。
-- 最终提交的是 `{ username, encryptedPassword }`。
+- 最终提交的是 `{ username, password }`。
 - `fetchMeApi()`：请求 `/api/me`，登录后可带 `Authorization: Bearer <token>`；SSR 刷新时通过 `useRequestFetch()` 转发 cookie。
 - `logoutApi()`：请求 `/api/logout`。
 - `isUnauthorizedError()`：统一判断 401，给 middleware 和 composable 使用。
 
-这里是前端登录请求的关键边界：页面可以持有用户正在输入的密码，但请求层不能把原始 `password` 发出去。
+这里是前端登录请求的关键边界：页面和请求层只负责提交登录信息，不保存 token，不碰数据库。
 
-## 密码加密怎么走
+## 密码校验怎么走
 
-前端文件：`utils/password-encryption.ts`
-
-后端文件：
-
-- `server/api/auth/password-key.get.ts`
-- `server/utils/password-encryption.ts`
-
-流程是：
+传输层依赖 HTTPS，应用层不再做前端 RSA 加密：
 
 ```text
-前端 encryptPasswordForRequest(password)
+前端 POST /api/login { username, password }
   |
-  | GET /api/auth/password-key
-  v
-后端返回 publicKey
-  |
-  v
-前端 crypto.subtle.importKey()
-  |
-  v
-前端 crypto.subtle.encrypt()
-  |
-  v
-得到 base64 encryptedPassword
-```
-
-后端收到 `encryptedPassword` 后：
-
-```text
 server/api/login.post.ts
   |
-  | decryptPassword(encryptedPassword)
-  v
-server/utils/password-encryption.ts
+server/services/users.ts
   |
-  | privateDecrypt(...)
+  | bcrypt.compare(password, user.passwordHash)
   v
-得到本次请求里的原始密码
+返回 token
 ```
 
-本地学习环境如果没有配置密钥，后端会自动生成内存 RSA 密钥对。生产环境应该在 `.env` 配置固定的：
-
-```env
-PASSWORD_PUBLIC_KEY=
-PASSWORD_PRIVATE_KEY=
-```
+数据库仍然只保存 `password_hash`，不能保存明文密码。
 
 ## 后端登录接口负责什么
 
@@ -191,18 +150,17 @@ PASSWORD_PRIVATE_KEY=
 
 它是登录接口入口：
 
-1. `readBody()` 读取 `username` 和 `encryptedPassword`。
-2. 调用 `decryptPassword()` 解密密码。
-3. 调用 `findUserByCredentials()` 查询用户并校验密码。
-4. 调用 `createAuthSession()` 创建 Redis session。
-5. `setCookie()` 写入 `httpOnly cookie`。
-6. 返回本次登录生成的 `token`。
+1. `readBody()` 读取 `username` 和 `password`。
+2. 调用 `findUserByCredentials()` 查询用户并校验密码。
+3. 调用 `createAuthSession()` 创建 Redis session。
+4. `setCookie()` 写入 `httpOnly cookie`。
+5. 返回本次登录生成的 `token`。
 
 它不做：
 
 - 不返回 `user`、`routes`、`buttons`，这些只由 `/api/me` 返回。
 - 不返回 `passwordHash`。
-- 不把解密后的密码写入数据库。
+- 不把请求里的密码写入数据库。
 
 ## 用户校验负责什么
 
@@ -219,7 +177,7 @@ findUserByCredentials(username, password)
 - 用 Prisma 从 MySQL `users` 表按 `username` 查用户。
 - 用 `bcrypt.compare(password, user.passwordHash)` 做 bcrypt 比较。
 
-这里的 `password` 是后端私钥解密后得到的本次请求密码。数据库里保存的是 `passwordHash`，不是明文密码。
+这里的 `password` 是本次 HTTPS 请求里的密码。数据库里保存的是 `passwordHash`，不是明文密码。
 
 ## Redis session 负责什么
 
@@ -255,7 +213,6 @@ nuxt-admin-token=<token>
 它保护所有 `/api` 接口，除了白名单：
 
 ```text
-/api/auth/password-key
 /api/login
 /api/logout
 ```
@@ -363,17 +320,17 @@ composables/use-auth.ts
 
 ## 最容易混淆的点
 
-### 1. 密码加密和密码哈希不是一回事
+### 1. HTTPS 和密码哈希不是一回事
 
 ```text
-前端 RSA 加密
-  解决：请求体不要出现原始密码
+HTTPS
+  解决：传输过程不被明文窃听
 
 后端 bcrypt 哈希
   解决：数据库不要保存明文密码
 ```
 
-当前项目两个都做了。
+当前项目采用标准后台链路：HTTPS 负责传输安全，bcrypt 负责落库安全。
 
 ### 2. cookie 和 Redis session 是一组
 
@@ -406,13 +363,12 @@ utils/api/auth.ts
 登录失败时，按这个顺序查：
 
 1. `pages/login.vue`：表单有没有触发 `handleLogin()`。
-2. `utils/api/auth.ts`：请求 body 是否是 `{ username, encryptedPassword }`。
-3. `server/api/auth/password-key.get.ts`：公钥接口是否能访问。
-4. `server/api/login.post.ts`：密文能不能被 `decryptPassword()` 解开。
-5. `server/services/users.ts`：数据库里有没有这个用户，bcrypt 是否匹配。
-6. `server/services/auth.ts`：Redis 是否启动，session 是否写入。
-7. 浏览器开发者工具：响应头里是否有 `Set-Cookie`。
-8. `server/middleware/auth.ts`：后续 `/api/me` 能不能从 Redis 解析出用户。
+2. `utils/api/auth.ts`：请求 body 是否是 `{ username, password }`。
+3. `server/api/login.post.ts`：是否正确读取 username/password。
+4. `server/services/users.ts`：数据库里有没有这个用户，bcrypt 是否匹配。
+5. `server/services/auth.ts`：Redis 是否启动，session 是否写入。
+6. 浏览器开发者工具：响应头里是否有 `Set-Cookie`。
+7. `server/middleware/auth.ts`：后续 `/api/me` 能不能从 Redis 解析出用户。
 
 ## 当前你最该看的代码
 
@@ -422,7 +378,6 @@ utils/api/auth.ts
 pages/login.vue
   -> composables/use-auth.ts
   -> utils/api/auth.ts
-  -> utils/password-encryption.ts
   -> server/api/login.post.ts
   -> server/services/users.ts
   -> server/services/auth.ts
