@@ -6,6 +6,7 @@ type CreateRoleInput = {
   name: string
   code: string
   description?: string
+  isDepartmentManager: boolean
 }
 
 const defaultRoles = [
@@ -13,12 +14,14 @@ const defaultRoles = [
     name: '普通管理员',
     code: 'admin',
     description: '可以查看基础后台页面，具体操作由角色权限控制。',
+    isDepartmentManager: false,
     sort: 10
   },
   {
     name: '超级管理员',
     code: 'super_admin',
     description: '系统内置最高权限角色，默认拥有全部页面和按钮权限。',
+    isDepartmentManager: false,
     sort: 20
   }
 ]
@@ -29,6 +32,7 @@ function toRoleListItem(role: Role): RoleListItem {
     name: role.name,
     code: role.code,
     description: role.description,
+    isDepartmentManager: role.isDepartmentManager,
     status: role.status,
     sort: role.sort,
     createdAt: role.createdAt.toISOString()
@@ -44,6 +48,7 @@ export async function ensureDefaultRoles() {
       update: {
         name: role.name,
         description: role.description,
+        isDepartmentManager: role.isDepartmentManager,
         status: 1,
         sort: role.sort
       },
@@ -100,6 +105,18 @@ export async function roleExists(code: string) {
   return count > 0
 }
 
+export async function findRoleByCode(code: string) {
+  await ensureDefaultRoles()
+
+  const role = await prisma.role.findUnique({
+    where: {
+      code
+    }
+  })
+
+  return role ? toRoleListItem(role) : null
+}
+
 export async function createRole(input: CreateRoleInput) {
   await ensureDefaultRoles()
 
@@ -108,6 +125,7 @@ export async function createRole(input: CreateRoleInput) {
       name: input.name,
       code: input.code,
       description: input.description || null,
+      isDepartmentManager: input.isDepartmentManager,
       status: 1,
       sort: 100
     }

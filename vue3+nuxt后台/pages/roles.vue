@@ -51,7 +51,9 @@ const selectedPermissionIds = ref<number[]>([])
 const createForm = reactive({
   name: '',
   code: '',
-  description: ''
+  description: '',
+  isDepartmentManager: false,
+  canSubmitWorkOrder: false
 })
 
 const createRules = {
@@ -87,6 +89,20 @@ const roleColumns: BaseTableColumn[] = [
     prop: 'description',
     minWidth: 220,
     showOverflowTooltip: true
+  },
+  {
+    label: '部门负责人',
+    prop: 'isDepartmentManager',
+    width: 120,
+    align: 'center',
+    slot: 'manager'
+  },
+  {
+    label: '允许提交',
+    prop: 'canSubmitWorkOrder',
+    width: 110,
+    align: 'center',
+    slot: 'submit'
   },
   {
     label: '状态',
@@ -161,7 +177,12 @@ const filteredRoles = computed(() => {
   })
 })
 const roleTableData = computed<BaseTableRow[]>(() => {
-  return filteredRoles.value.map(role => ({ ...role }))
+  return filteredRoles.value.map(role => ({
+    ...role,
+    managerText: role.isDepartmentManager ? '是' : '否',
+    canSubmitWorkOrder: canRoleSubmitWorkOrder(role.code),
+    canSubmitText: canRoleSubmitWorkOrder(role.code) ? '是' : '否'
+  }))
 })
 const pagedRoleTableData = computed(() => {
   const start = (roleCurrentPage.value - 1) * rolePageSize.value
@@ -169,6 +190,7 @@ const pagedRoleTableData = computed(() => {
   return roleTableData.value.slice(start, start + rolePageSize.value)
 })
 const permissionTree = computed(() => permissionsData.value?.list ?? [])
+const workOrderCreatePermissionId = computed(() => findPermissionIdByCode(permissionTree.value, 'work_orders.create'))
 const permissionTableData = computed<BaseTableRow[]>(() => {
   return permissionTree.value.map(mapPermissionToTableRow)
 })
@@ -179,6 +201,12 @@ const selectedPermissionIdSet = computed(() => new Set(selectedPermissionIds.val
 const allPermissionIds = computed(() => collectPermissionIds(permissionTree.value))
 const selectedPermissionCount = computed(() => selectedPermissionIds.value.length)
 const isBuiltInSuperAdmin = computed(() => selectedRoleCode.value === 'super_admin')
+
+watch(() => createForm.isDepartmentManager, (value) => {
+  if (value) {
+    createForm.canSubmitWorkOrder = false
+  }
+})
 
 function mapPermissionToTableRow(permission: PermissionTreeItem): BaseTableRow {
   return {
@@ -219,6 +247,32 @@ function collectPermissionIds(rows: PermissionTreeItem[]) {
   return ids
 }
 
+function findPermissionIdByCode(rows: PermissionTreeItem[], code: string): number | null {
+  for (const row of rows) {
+    if (row.code === code) {
+      return row.id
+    }
+
+    const childId = row.children ? findPermissionIdByCode(row.children, code) : null
+
+    if (childId !== null) {
+      return childId
+    }
+  }
+
+  return null
+}
+
+function canRoleSubmitWorkOrder(roleCode: string) {
+  const permissionId = workOrderCreatePermissionId.value
+
+  if (permissionId === null) {
+    return false
+  }
+
+  return permissionsData.value?.rolePermissionIds?.[roleCode]?.includes(permissionId) ?? false
+}
+
 function getRoleStatusLabel(value: unknown) {
   return Number(value) === 1 ? '启用' : '停用'
 }
@@ -257,7 +311,9 @@ function resetCreateForm() {
   Object.assign(createForm, {
     name: '',
     code: '',
-    description: ''
+    description: '',
+    isDepartmentManager: false,
+    canSubmitWorkOrder: false
   })
   createFormRef.value?.clearValidate()
 }
@@ -486,6 +542,18 @@ async function handleSaveRolePermissions() {
             </el-tag>
           </template>
 
+          <template #manager="{ row }">
+            <el-tag class="status-tag" :class="row.isDepartmentManager ? 'status-success' : 'source-manual'" effect="plain">
+              {{ row.managerText }}
+            </el-tag>
+          </template>
+
+          <template #submit="{ row }">
+            <el-tag class="status-tag" :class="row.canSubmitWorkOrder ? 'status-success' : 'source-manual'" effect="plain">
+              {{ row.canSubmitText }}
+            </el-tag>
+          </template>
+
           <template #actions="{ row }">
             <el-button
               v-if="canSaveRolePermissions"
@@ -517,6 +585,17 @@ async function handleSaveRolePermissions() {
 
           <el-form-item label="角色编码" prop="code">
             <el-input v-model="createForm.code" placeholder="例如 quality_admin" />
+          </el-form-item>
+
+          <el-form-item label="部门负责人">
+            <el-switch v-model="createForm.isDepartmentManager" />
+          </el-form-item>
+
+          <el-form-item label="允许提交工单">
+            <el-switch
+              v-model="createForm.canSubmitWorkOrder"
+              :disabled="createForm.isDepartmentManager"
+            />
           </el-form-item>
 
           <el-form-item label="角色说明">

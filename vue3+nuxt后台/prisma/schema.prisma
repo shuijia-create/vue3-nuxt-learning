@@ -103,21 +103,23 @@ model WorkOrder {
 
 model Role {
   // 角色主键 ID。
-  id          Int      @id @default(autoincrement())
+  id                  Int      @id @default(autoincrement())
   // 角色名称，例如“普通管理员”“超级管理员”。
-  name        String   @db.VarChar(50)
+  name                String   @db.VarChar(50)
   // 角色编码，例如 admin、super_admin；users.role 和 role_permissions.role 都保存这个编码。
-  code        String   @unique @db.VarChar(30)
+  code                String   @unique @db.VarChar(30)
   // 角色说明，方便在角色管理页解释这个角色能做什么。
-  description String?  @db.VarChar(255)
+  description         String?  @db.VarChar(255)
+  // 角色是否代表部门负责人。账号选择这个角色时，会同步成账号的负责人标记。
+  isDepartmentManager Boolean  @default(false) @map("is_department_manager")
   // 状态：1 启用，2 停用。当前先只展示，不接入真实禁用逻辑。
-  status      Int      @default(1) @db.TinyInt
+  status              Int      @default(1) @db.TinyInt
   // 排序值，用来控制角色列表展示顺序。
-  sort        Int      @default(0)
+  sort                Int      @default(0)
   // 创建时间。
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt           DateTime @default(now()) @map("created_at")
   // 更新时间。
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("roles")
 }

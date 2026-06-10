@@ -150,9 +150,12 @@ const { data: rolesData } = await useAsyncData('roles-for-accounts', () => {
 })
 
 const accounts = computed(() => data.value?.list ?? [])
+const roleMap = computed(() => {
+  return new Map((rolesData.value?.list ?? []).map(role => [role.code, role]))
+})
 const roleOptions = computed(() => {
   return (rolesData.value?.list ?? []).map(role => ({
-    label: role.name,
+    label: getRoleOptionLabel(role),
     value: role.code
   }))
 })
@@ -185,6 +188,18 @@ const pagedTableData = computed(() => {
 
   return tableData.value.slice(start, start + accountPageSize.value)
 })
+
+watch(() => createForm.role, (roleCode) => {
+  const role = roleMap.value.get(roleCode)
+
+  if (role) {
+    createForm.isDepartmentManager = role.isDepartmentManager
+  }
+})
+
+function getRoleOptionLabel(role: RoleListItem) {
+  return role.isDepartmentManager ? `${role.name}（负责人）` : role.name
+}
 
 function getRoleLabel(role: string) {
   return roleOptions.value.find((item) => item.value === role)?.label ?? role

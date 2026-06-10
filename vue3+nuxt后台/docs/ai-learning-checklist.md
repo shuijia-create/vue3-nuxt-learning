@@ -166,6 +166,7 @@ npm run build
 
 ## 学习记录
 
+- 2026-06-10：修正角色、部门和工单提交权限的边界：角色只负责权限模板和“是否部门负责人”，部门仍然作为账号的组织归属单独配置，避免按部门复制角色导致角色爆炸；创建角色时新增“允许提交工单”快捷配置，本质仍写入 `role_permissions` 的 `work_orders.create` 权限，负责人角色默认不授予提交入口；新增角色负责人字段 migration，并通过 `npx prisma validate`、`npx prisma migrate dev`、`npx prisma generate`、`npm run typecheck`、`npm run build` 验证。
 - 2026-06-10：把工单系统补成“角色管权限、部门管数据范围、类型决定处理部门”的闭环：IT 问题、设备维修、质量异常、行政后勤、权限申请、安全隐患会自动流向对应部门；账号支持配置所属部门和部门负责人；工单列表与详情按提交人、被指派处理人、处理部门负责人和 `super_admin` 做服务端数据范围过滤；受理时从处理部门用户中指派具体处理人；新增 Prisma migration，并通过 `npx prisma validate`、`npx prisma generate`、`npx prisma migrate dev`、`npm run typecheck`、`npm run build` 验证。
 - 2026-06-10：把工单从简单“待处理 -> 处理中 -> 待确认”升级为完整流程：员工提交后进入待受理，领导受理并指派处理人，处理人可填写或留空处理说明并提交待确认，提交人或领导可以确认关闭或退回处理；新增数据库字段和 migration，已应用本地 MySQL migration，并通过 `npm run typecheck`、`npm run build` 和完整流程接口 smoke test 验证。
 - 2026-06-10：完成企业知识库问答第一版，新增 mock 制度文档、知识库数据结构、关键词检索 service、`POST /api/ai/knowledge-answer` 和前端提问/引用来源展示，明确提示 AI 回答不能替代制度原文；通过 `npm run typecheck`、`npm run build` 和登录后接口 smoke test 验证。

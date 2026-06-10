@@ -552,3 +552,20 @@ export async function updateRolePermissions(role: string, rawPermissionIds: numb
 
   return listPermissionTree()
 }
+
+export async function updateRolePermissionCodes(role: string, permissionCodes: string[]) {
+  await ensurePermissionSeedData()
+
+  const permissions = await prisma.permission.findMany({
+    where: {
+      code: {
+        in: permissionCodes
+      }
+    },
+    select: {
+      id: true
+    }
+  })
+
+  return updateRolePermissions(role, permissions.map(permission => permission.id))
+}

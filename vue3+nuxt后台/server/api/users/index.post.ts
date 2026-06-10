@@ -4,7 +4,7 @@ import {
   findAuthUserByUsername
 } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
-import { roleExists } from '~/server/services/roles'
+import { findRoleByCode } from '~/server/services/roles'
 import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 import { isWorkOrderHandlerDepartment } from '~/utils/work-order-config'
 
@@ -42,11 +42,16 @@ export default defineEventHandler(async (event) => {
     throwApiError(400, '昵称不能为空，且不能超过 50 个字符')
   }
 
-  if (!(await roleExists(role))) {
+  const roleConfig = await findRoleByCode(role)
+
+  if (!roleConfig) {
     throwApiError(400, '账号角色不正确')
   }
 
-  if (!isWorkOrderHandlerDepartment(departmentName)) {
+  const finalDepartmentName = departmentName
+  const finalIsDepartmentManager = roleConfig.isDepartmentManager || isDepartmentManager
+
+  if (!isWorkOrderHandlerDepartment(finalDepartmentName)) {
     throwApiError(400, '请选择账号所属部门')
   }
 
@@ -62,8 +67,8 @@ export default defineEventHandler(async (event) => {
       password,
       nickname,
       role,
-      departmentName,
-      isDepartmentManager
+      departmentName: finalDepartmentName,
+      isDepartmentManager: finalIsDepartmentManager
     })
   }, '账号创建成功')
 })

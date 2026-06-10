@@ -146,13 +146,22 @@ export async function createUserAccount(input: CreateUserInput) {
   return toUserListItem(user)
 }
 
-export async function updateUserRole(id: number, role: string) {
+type RoleWorkScope = {
+  isDepartmentManager: boolean
+}
+
+export async function updateUserRole(id: number, role: string, workScope?: RoleWorkScope) {
   const user = await prisma.user.update({
     where: {
       id
     },
     data: {
-      role
+      role,
+      ...(workScope
+        ? {
+            isDepartmentManager: workScope.isDepartmentManager
+          }
+        : {})
     },
     select: userListSelect
   })
