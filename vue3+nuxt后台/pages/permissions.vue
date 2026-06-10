@@ -485,7 +485,7 @@ async function handleCreatePermission() {
 }
 
 .table-card :deep(.el-card__header) {
-  padding: 14px 20px;
+  padding: 12px 20px;
 }
 
 .table-card-header {
@@ -510,20 +510,20 @@ async function handleCreatePermission() {
 .permission-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
 .permission-name {
   color: var(--admin-text);
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .permission-meta {
   overflow: hidden;
   color: var(--admin-muted);
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -1,0 +1,15 @@
+ALTER TABLE `work_orders`
+  ADD COLUMN `assignee_id` INTEGER NULL,
+  ADD COLUMN `assignee_name` VARCHAR(50) NULL,
+  ADD COLUMN `accepted_by` INTEGER NULL,
+  ADD COLUMN `accepted_by_name` VARCHAR(50) NULL,
+  ADD COLUMN `accepted_at` DATETIME(3) NULL,
+  ADD COLUMN `handled_by` INTEGER NULL,
+  ADD COLUMN `handled_by_name` VARCHAR(50) NULL,
+  ADD COLUMN `handled_result` TEXT NULL,
+  ADD COLUMN `handled_at` DATETIME(3) NULL,
+  ADD COLUMN `confirmed_by` INTEGER NULL,
+  ADD COLUMN `confirmed_by_name` VARCHAR(50) NULL,
+  ADD COLUMN `confirm_result` TEXT NULL,
+  ADD COLUMN `confirmed_at` DATETIME(3) NULL,
+  ADD COLUMN `closed_at` DATETIME(3) NULL;

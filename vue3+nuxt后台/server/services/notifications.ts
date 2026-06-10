@@ -102,8 +102,8 @@ export async function createNotification(params: CreateNotificationParams) {
 export function createWorkOrderCreatedNotification(params: WorkOrderNotificationParams) {
   return createNotification({
     type: 'work_order_created',
-    title: '新工单待处理',
-    content: `工单“${params.workOrder.title}”已创建，请及时处理。`,
+    title: '新工单待受理',
+    content: `工单“${params.workOrder.title}”已创建，请先受理并指派处理人。`,
     recipientUserId: params.recipientUserId,
     relatedWorkOrderId: params.workOrder.id,
     targetPath: `/work-orders/${params.workOrder.id}`

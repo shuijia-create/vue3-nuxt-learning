@@ -11,26 +11,30 @@ datasource db {
 
 model User {
   // 数据库主键，给程序查询、关联其他表使用；MySQL 会自动递增。
-  id           Int      @id @default(autoincrement())
+  id                  Int            @id @default(autoincrement())
   // 登录用户名；@unique 表示不能重复，避免两个用户使用同一个账号。
-  username     String   @unique @db.VarChar(50)
+  username            String         @unique @db.VarChar(50)
   // 密码哈希，不存明文密码；@map 表示数据库字段名是 password_hash。
-  passwordHash String   @map("password_hash") @db.VarChar(255)
+  passwordHash        String         @map("password_hash") @db.VarChar(255)
   // 页面上展示的用户昵称，例如“管理员”。
-  nickname     String   @db.VarChar(50)
+  nickname            String         @db.VarChar(50)
   // 当前先用单角色字符串；admin 表示普通管理员，super_admin 表示超级管理员。
   // 后续如果做复杂权限，再拆成角色表和用户角色关系表。
-  role         String   @default("admin") @db.VarChar(30)
+  role                String         @default("admin") @db.VarChar(30)
+  // 用户所属处理部门，用来控制“部门负责人能看到本部门工单”的数据范围。
+  departmentName      String?        @map("department_name") @db.VarChar(50)
+  // 是否部门负责人。角色决定能不能操作，部门负责人标记决定能不能看本部门待受理工单。
+  isDepartmentManager Boolean        @default(false) @map("is_department_manager")
   // 创建时间；默认使用数据库当前时间，数据库字段名是 created_at。
-  createdAt    DateTime @default(now()) @map("created_at")
+  createdAt           DateTime       @default(now()) @map("created_at")
   // 更新时间；Prisma 每次更新这条用户记录时会自动刷新，数据库字段名是 updated_at。
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
   // 这个用户创建过的工单列表；只是 Prisma 关系字段，不会单独生成数据库字段。
-  workOrders   WorkOrder[]
+  workOrders          WorkOrder[]
   // 这个用户收到的站内通知。
-  notifications Notification[]
+  notifications       Notification[]
   // 这个用户产生过的操作日志；日志里也会保留 operator 文本，方便用户改名后仍能看懂历史记录。
-  operationLogs OperationLog[]
+  operationLogs       OperationLog[]
 
   // Prisma 模型叫 User，真实 MySQL 表名叫 users。
   @@map("users")
@@ -38,38 +42,62 @@ model User {
 
 model WorkOrder {
   // 工单主键 ID；MySQL 会自动递增。
-  id           Int      @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   // 工单编号，例如 WO-20260605-001；给用户看，也方便搜索。
-  code         String   @unique @db.VarChar(50)
+  code            String         @unique @db.VarChar(50)
   // 工单标题。
-  title        String   @db.VarChar(100)
-  // 工单类型：1 设备故障，2 IT 问题，3 质量异常。
-  type         Int      @db.TinyInt
-  // 工单状态：1 待处理，2 处理中，3 待确认。
-  status       Int      @default(1) @db.TinyInt
+  title           String         @db.VarChar(100)
+  // 工单类型：1 设备维修，2 IT 问题，3 质量异常，4 行政后勤，5 权限申请，6 安全隐患。
+  type            Int            @db.TinyInt
+  // 工单状态：1 待受理，2 处理中，3 待确认，4 已关闭。
+  status          Int            @default(1) @db.TinyInt
   // 优先级：1 低，2 中，3 高。
-  priority     Int      @default(2) @db.TinyInt
-  // 提交人姓名；当前先保留文本，后面如果要做“指派给谁”再关联 users。
-  submitter    String   @db.VarChar(50)
+  priority        Int            @default(2) @db.TinyInt
+  // 提交人姓名；这里保留业务填写的姓名，登录创建人用 created_by 记录。
+  submitter       String         @db.VarChar(50)
   // 工单描述，内容可能比较长，所以用 Text。
-  description  String   @db.Text
+  description     String         @db.Text
   // 来源：1 手动创建，2 AI 草稿。
-  source       Int      @default(1) @db.TinyInt
+  source          Int            @default(1) @db.TinyInt
   // AI 建议内容；只有 AI 草稿保存成工单时才会有值。
-  aiSuggestion Json?    @map("ai_suggestion")
+  aiSuggestion    Json?          @map("ai_suggestion")
+  // 工单类型自动决定的处理部门，例如 IT 部、维修部、质量部。
+  handlerDeptName String         @default("IT 部") @map("handler_dept_name") @db.VarChar(50)
+  // 领导受理后指派给谁处理。assignee_id 保存 users.id，名称字段保留历史快照。
+  assigneeId      Int?           @map("assignee_id")
+  assigneeName    String?        @map("assignee_name") @db.VarChar(50)
+  // 受理人信息：通常是领导、主管或调度员。
+  acceptedBy      Int?           @map("accepted_by")
+  acceptedByName  String?        @map("accepted_by_name") @db.VarChar(50)
+  acceptedAt      DateTime?      @map("accepted_at")
+  // 处理人提交的处理结果。
+  handledBy       Int?           @map("handled_by")
+  handledByName   String?        @map("handled_by_name") @db.VarChar(50)
+  handledResult   String?        @map("handled_result") @db.Text
+  handledAt       DateTime?      @map("handled_at")
+  // 提交人或领导确认结果；退回时也会记录退回原因。
+  confirmedBy     Int?           @map("confirmed_by")
+  confirmedByName String?        @map("confirmed_by_name") @db.VarChar(50)
+  confirmResult   String?        @map("confirm_result") @db.Text
+  confirmedAt     DateTime?      @map("confirmed_at")
+  // 工单真正关闭的时间。
+  closedAt        DateTime?      @map("closed_at")
   // 创建人用户 ID；可以为空，避免老数据或演示数据没有登录用户时写不进去。
-  createdBy    Int?     @map("created_by")
+  createdBy       Int?           @map("created_by")
   // 关联 users.id。用户被删除时，工单保留，只把 created_by 置空。
-  creator      User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  creator         User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   // 这张工单关联过的通知列表。
-  notifications Notification[]
+  notifications   Notification[]
   // 创建时间；默认使用数据库当前时间。
-  createdAt    DateTime @default(now()) @map("created_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
   // 更新时间；Prisma 每次更新这条工单时会自动刷新。
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
 
   @@index([status], map: "work_orders_status_idx")
   @@index([type], map: "work_orders_type_idx")
+  @@index([createdBy], map: "work_orders_created_by_idx")
+  @@index([assigneeId], map: "work_orders_assignee_idx")
+  @@index([handlerDeptName, status], map: "work_orders_handler_dept_status_idx")
   @@map("work_orders")
 }
 
@@ -99,7 +127,7 @@ model Notification {
   id                 Int        @id @default(autoincrement())
   // 通知类型：1 工单创建，2 工单状态变化。
   type               Int        @db.TinyInt
-  // 通知标题，例如“新工单待处理”。
+  // 通知标题，例如“新工单待受理”。
   title              String     @db.VarChar(100)
   // 通知正文，说明发生了什么。
   content            String     @db.Text

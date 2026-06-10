@@ -109,8 +109,10 @@ a {
 .data-page,
 .management-page {
   display: flex;
-  min-height: calc(100vh - 164px);
+  height: calc(100vh - 158px);
+  min-height: 0;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .el-card {
@@ -197,9 +199,10 @@ a {
 .table-card {
   display: flex;
   flex: 1 1 auto;
-  min-height: 420px;
+  min-height: 0;
   flex-direction: column;
   margin-bottom: 0;
+  overflow: hidden;
 }
 
 .table-card > .el-card__body {
@@ -207,6 +210,7 @@ a {
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .query-card .el-card__body,

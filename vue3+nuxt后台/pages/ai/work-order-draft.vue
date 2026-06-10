@@ -5,6 +5,7 @@ import { useNotifications } from '~/composables/use-notifications'
 import { useWorkOrders } from '~/composables/use-work-orders'
 import { useAuthStore } from '~/stores/auth'
 import { getApiErrorMessage } from '~/utils/api/errors'
+import { getDefaultWorkOrderHandlerDept } from '~/utils/work-order-config'
 
 definePageMeta({
   layout: 'admin'
@@ -26,7 +27,7 @@ const canSaveAsWorkOrder = computed(() => auth.hasButtonPermission('ai_work_orde
 
 const draft = ref<WorkOrderDraft>({
   title: '2 号线混料设备温度偏高报警',
-  type: '设备故障',
+  type: '设备维修',
   priority: '高',
   impact: '现场已暂停投料，可能影响当前批次生产节拍。',
   suggestion: '建议检查温控传感器、冷却系统和设备运行日志。',
@@ -43,6 +44,10 @@ const priorityClassMap: Record<WorkOrderPriority, string> = {
   中: 'priority-middle',
   高: 'priority-high'
 }
+
+const draftHandlerDeptName = computed(() => {
+  return getDefaultWorkOrderHandlerDept(draft.value.type)
+})
 
 async function handleGenerateDraft() {
   if (!canGenerateDraft.value) {
@@ -159,6 +164,9 @@ async function handleSaveAsWorkOrder() {
             </el-descriptions-item>
             <el-descriptions-item label="建议类型">
               <el-tag class="status-tag source-ai" effect="plain">{{ draft.type }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="默认处理部门">
+              <el-tag class="status-tag permission-button-tag" effect="plain">{{ draftHandlerDeptName }}</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="优先级">
               <el-tag class="status-tag" :class="priorityClassMap[draft.priority]" effect="plain">

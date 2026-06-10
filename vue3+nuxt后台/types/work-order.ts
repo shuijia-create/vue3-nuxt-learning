@@ -1,6 +1,10 @@
-export type WorkOrderType = '设备故障' | 'IT 问题' | '质量异常'
+export type WorkOrderType = 'IT 问题' | '设备维修' | '质量异常' | '行政后勤' | '权限申请' | '安全隐患'
 
-export type WorkOrderStatus = '待处理' | '处理中' | '待确认'
+export type WorkOrderHandlerDepartment = 'IT 部' | '维修部' | '质量部' | '行政部' | '系统管理员' | '安环部'
+
+export type WorkOrderStatus = '待受理' | '处理中' | '待确认' | '已关闭'
+
+export type WorkOrderFlowAction = 'accept' | 'submit_result' | 'confirm_close' | 'return_to_processing'
 
 export type WorkOrderPriority = '低' | '中' | '高'
 
@@ -25,8 +29,20 @@ export interface WorkOrder {
   code: string
   title: string
   type: WorkOrderType
+  handlerDeptName: WorkOrderHandlerDepartment
   status: WorkOrderStatus
   submitter: string
+  assigneeUserId?: number
+  assigneeName?: string
+  acceptedByName?: string
+  acceptedAt?: string
+  handledByName?: string
+  handledResult?: string
+  handledAt?: string
+  confirmedByName?: string
+  confirmResult?: string
+  confirmedAt?: string
+  closedAt?: string
   createdAt: string
   description: string
   source: WorkOrderSource

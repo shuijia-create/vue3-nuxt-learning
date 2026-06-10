@@ -7,6 +7,8 @@ import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/use-auth'
 import { getApiErrorMessage } from '~/utils/api/errors'
 import { fetchApiData } from '~/utils/api/response'
+import { workOrderHandlerDepartmentOptions } from '~/utils/work-order-config'
+import type { WorkOrderHandlerDepartment } from '~/types/work-order'
 
 definePageMeta({
   layout: 'admin'
@@ -22,6 +24,8 @@ type AccountUser = {
   nickname: string
   role: string
   roles: string[]
+  departmentName?: WorkOrderHandlerDepartment
+  isDepartmentManager: boolean
   createdAt: string
 }
 
@@ -29,6 +33,7 @@ type AccountQueryForm = {
   username: string
   nickname: string
   role: string
+  departmentName: WorkOrderHandlerDepartment | ''
 }
 
 const auth = useAuthStore()
@@ -43,12 +48,14 @@ const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 const queryForm = reactive<AccountQueryForm>({
   username: '',
   nickname: '',
-  role: ''
+  role: '',
+  departmentName: ''
 })
 const queryParams = reactive<AccountQueryForm>({
   username: '',
   nickname: '',
-  role: ''
+  role: '',
+  departmentName: ''
 })
 const createFormRef = ref()
 const createDialogVisible = ref(false)
@@ -60,7 +67,9 @@ const createForm = reactive({
   username: '',
   nickname: '',
   password: '',
-  role: 'admin'
+  role: 'admin',
+  departmentName: 'IT 部' as WorkOrderHandlerDepartment,
+  isDepartmentManager: false
 })
 
 const createRules = {
@@ -82,6 +91,9 @@ const createRules = {
   ],
   role: [
     { required: true, message: '请选择角色', trigger: 'change' }
+  ],
+  departmentName: [
+    { required: true, message: '请选择所属部门', trigger: 'change' }
   ]
 }
 
@@ -103,6 +115,19 @@ const accountColumns: BaseTableColumn[] = [
     prop: 'role',
     width: 180,
     slot: 'role'
+  },
+  {
+    label: '所属部门',
+    prop: 'departmentName',
+    width: 170,
+    slot: 'department'
+  },
+  {
+    label: '部门负责人',
+    prop: 'isDepartmentManager',
+    width: 130,
+    align: 'center',
+    slot: 'manager'
   },
   {
     label: '创建时间',
@@ -135,19 +160,23 @@ const filteredAccounts = computed(() => {
   const username = queryParams.username.trim()
   const nickname = queryParams.nickname.trim()
   const role = queryParams.role
+  const departmentName = queryParams.departmentName
 
   return accounts.value.filter((account) => {
     const matchedUsername = username ? account.username.includes(username) : true
     const matchedNickname = nickname ? account.nickname.includes(nickname) : true
     const matchedRole = role ? account.role === role : true
+    const matchedDepartment = departmentName ? account.departmentName === departmentName : true
 
-    return matchedUsername && matchedNickname && matchedRole
+    return matchedUsername && matchedNickname && matchedRole && matchedDepartment
   })
 })
 const tableData = computed<BaseTableRow[]>(() => {
   return filteredAccounts.value.map(account => ({
     ...account,
     roleLabel: getRoleLabel(account.role),
+    departmentName: account.departmentName ?? '未配置',
+    managerText: account.isDepartmentManager ? '是' : '否',
     createdAtText: formatDate(account.createdAt)
   }))
 })
@@ -175,6 +204,7 @@ function handleSearch() {
   queryParams.username = queryForm.username.trim()
   queryParams.nickname = queryForm.nickname.trim()
   queryParams.role = queryForm.role
+  queryParams.departmentName = queryForm.departmentName
   accountCurrentPage.value = 1
 }
 
@@ -182,9 +212,11 @@ function resetSearch() {
   queryForm.username = ''
   queryForm.nickname = ''
   queryForm.role = ''
+  queryForm.departmentName = ''
   queryParams.username = ''
   queryParams.nickname = ''
   queryParams.role = ''
+  queryParams.departmentName = ''
   accountCurrentPage.value = 1
 }
 
@@ -193,7 +225,9 @@ function resetCreateForm() {
     username: '',
     nickname: '',
     password: '',
-    role: 'admin'
+    role: 'admin',
+    departmentName: 'IT 部',
+    isDepartmentManager: false
   })
   createFormRef.value?.clearValidate()
 }
@@ -231,7 +265,9 @@ async function handleCreateAccount() {
         username: createForm.username,
         nickname: createForm.nickname,
         password: createForm.password,
-        role: createForm.role
+        role: createForm.role,
+        departmentName: createForm.departmentName,
+        isDepartmentManager: createForm.isDepartmentManager
       }
     })
 
@@ -272,6 +308,55 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
   } finally {
     updatingRoleUserId.value = null
   }
+}
+
+async function handleUpdateWorkScope(row: BaseTableRow, patch: Partial<Pick<AccountUser, 'departmentName' | 'isDepartmentManager'>>) {
+  if (!canUpdateAccountRole.value) {
+    return
+  }
+
+  const accountId = Number(row.id)
+  const departmentName = patch.departmentName ?? row.departmentName
+  const isDepartmentManager = patch.isDepartmentManager ?? Boolean(row.isDepartmentManager)
+
+  if (!departmentName || departmentName === '未配置') {
+    ElMessage.warning('请选择所属部门')
+    await refresh()
+    return
+  }
+
+  updatingRoleUserId.value = accountId
+
+  try {
+    await fetchApiData('/api/users/work-scope', {
+      method: 'POST',
+      body: {
+        id: accountId,
+        departmentName,
+        isDepartmentManager
+      }
+    })
+
+    ElMessage.success('账号工作范围已更新')
+    await refresh()
+  } catch (error) {
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
+    await refresh()
+  } finally {
+    updatingRoleUserId.value = null
+  }
+}
+
+function handleUpdateDepartment(row: BaseTableRow, value: unknown) {
+  handleUpdateWorkScope(row, {
+    departmentName: value as WorkOrderHandlerDepartment
+  })
+}
+
+function handleUpdateManager(row: BaseTableRow, value: unknown) {
+  handleUpdateWorkScope(row, {
+    isDepartmentManager: Boolean(value)
+  })
 }
 </script>
 
@@ -316,6 +401,23 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
                 :key="item.value"
                 :label="item.label"
                 :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="部门">
+            <el-select
+              v-model="queryForm.departmentName"
+              class="query-control"
+              clearable
+              placeholder="全部部门"
+              style="width: 180px;"
+            >
+              <el-option
+                v-for="item in workOrderHandlerDepartmentOptions"
+                :key="item"
+                :label="item"
+                :value="item"
               />
             </el-select>
           </el-form-item>
@@ -383,6 +485,39 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
               {{ row.roleLabel }}
             </el-tag>
           </template>
+
+          <template #department="{ row }">
+            <el-select
+              v-if="canUpdateAccountRole"
+              class="table-role-select"
+              :model-value="String(row.departmentName ?? '')"
+              :loading="updatingRoleUserId === Number(row.id)"
+              style="width: 150px;"
+              @change="handleUpdateDepartment(row, $event)"
+            >
+              <el-option
+                v-for="item in workOrderHandlerDepartmentOptions"
+                :key="item"
+                :label="item"
+                :value="item"
+              />
+            </el-select>
+            <el-tag v-else class="status-tag source-manual" effect="plain">
+              {{ row.departmentName }}
+            </el-tag>
+          </template>
+
+          <template #manager="{ row }">
+            <el-switch
+              v-if="canUpdateAccountRole"
+              :model-value="Boolean(row.isDepartmentManager)"
+              :loading="updatingRoleUserId === Number(row.id)"
+              @change="handleUpdateManager(row, $event)"
+            />
+            <el-tag v-else class="status-tag" :class="row.isDepartmentManager ? 'status-success' : 'source-manual'" effect="plain">
+              {{ row.managerText }}
+            </el-tag>
+          </template>
         </BaseTable>
       </el-card>
 
@@ -424,6 +559,25 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
                 :value="item.value"
               />
             </el-select>
+          </el-form-item>
+
+          <el-form-item label="所属部门" prop="departmentName">
+            <el-select v-model="createForm.departmentName" class="full-width" style="width: 100%;">
+              <el-option
+                v-for="item in workOrderHandlerDepartmentOptions"
+                :key="item"
+                :label="item"
+                :value="item"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="部门负责人">
+            <el-switch
+              v-model="createForm.isDepartmentManager"
+              active-text="是"
+              inactive-text="否"
+            />
           </el-form-item>
         </el-form>
 

@@ -27,7 +27,7 @@ export function useWorkOrders() {
     return createWorkOrderApi(payload)
   }
 
-  // 状态流转：页面按钮只表达目标状态，后端负责校验规则。
+  // 流程动作：页面只表达受理、提交处理结果、确认关闭或退回，后端负责校验规则。
   function changeWorkOrderStatus(payload: ChangeWorkOrderStatusPayload) {
     return changeWorkOrderStatusApi(payload)
   }

@@ -6,12 +6,15 @@ import {
 import { requirePermissionCode } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
 import { apiSuccess, throwApiError } from '~/server/utils/api-response'
+import { isWorkOrderHandlerDepartment } from '~/utils/work-order-config'
 
 type CreateUserBody = {
   username?: string
   password?: string
   nickname?: string
   role?: string
+  departmentName?: string
+  isDepartmentManager?: boolean
 }
 
 const usernamePattern = /^[a-zA-Z0-9_]{3,30}$/
@@ -24,6 +27,8 @@ export default defineEventHandler(async (event) => {
   const password = body.password ?? ''
   const nickname = body.nickname?.trim() ?? ''
   const role = body.role ?? 'admin'
+  const departmentName = body.departmentName?.trim()
+  const isDepartmentManager = body.isDepartmentManager === true
 
   if (!usernamePattern.test(username)) {
     throwApiError(400, '用户名只能包含字母、数字、下划线，长度 3-30 位')
@@ -41,6 +46,10 @@ export default defineEventHandler(async (event) => {
     throwApiError(400, '账号角色不正确')
   }
 
+  if (!isWorkOrderHandlerDepartment(departmentName)) {
+    throwApiError(400, '请选择账号所属部门')
+  }
+
   const existingUser = await findAuthUserByUsername(username)
 
   if (existingUser) {
@@ -52,7 +61,9 @@ export default defineEventHandler(async (event) => {
       username,
       password,
       nickname,
-      role
+      role,
+      departmentName,
+      isDepartmentManager
     })
   }, '账号创建成功')
 })

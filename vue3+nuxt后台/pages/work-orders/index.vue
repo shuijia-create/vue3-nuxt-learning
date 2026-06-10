@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
-import type { WorkOrderStatus, WorkOrderType } from '~/types/work-order'
+import type { WorkOrderHandlerDepartment, WorkOrderStatus, WorkOrderType } from '~/types/work-order'
 import { ElMessage } from 'element-plus'
 import { useNotifications } from '~/composables/use-notifications'
 import { useWorkOrders } from '~/composables/use-work-orders'
 import { useAuthStore } from '~/stores/auth'
 import { getApiErrorMessage } from '~/utils/api/errors'
+import {
+  getDefaultWorkOrderHandlerDept,
+  workOrderHandlerDepartmentOptions,
+  workOrderStatusOptions,
+  workOrderTypeOptions
+} from '~/utils/work-order-config'
 
 definePageMeta({
   layout: 'admin'
@@ -26,11 +32,13 @@ type CreateWorkOrderForm = {
 type WorkOrderFilterForm = {
   type: WorkOrderType | ''
   status: WorkOrderStatus | ''
+  handlerDeptName: WorkOrderHandlerDepartment | ''
 }
 
 const filterForm = reactive<WorkOrderFilterForm>({
   type: '',
-  status: ''
+  status: '',
+  handlerDeptName: ''
 })
 const notificationActions = useNotifications()
 const workOrderActions = useWorkOrders()
@@ -38,7 +46,8 @@ const auth = useAuthStore()
 
 const requestQuery = ref({
   type: undefined as WorkOrderType | undefined,
-  status: undefined as WorkOrderStatus | undefined
+  status: undefined as WorkOrderStatus | undefined,
+  handlerDeptName: undefined as WorkOrderHandlerDepartment | undefined
 })
 const canSearchWorkOrders = computed(() => auth.hasButtonPermission('work_orders.search'))
 const canResetWorkOrders = computed(() => auth.hasButtonPermission('work_orders.reset'))
@@ -69,13 +78,15 @@ const pagedTableData = computed(() => {
   return tableData.value.slice(start, start + workOrderPageSize.value)
 })
 
-const workOrderTypeOptions: WorkOrderType[] = ['设备故障', 'IT 问题', '质量异常']
-const workOrderStatusOptions: WorkOrderStatus[] = ['待处理', '处理中', '待确认']
+const createHandlerDeptName = computed(() => {
+  return createForm.type ? getDefaultWorkOrderHandlerDept(createForm.type as WorkOrderType) : ''
+})
 
 const statusClassMap: Record<WorkOrderStatus, string> = {
-  待处理: 'status-pending',
+  待受理: 'status-pending',
   处理中: 'status-processing',
-  待确认: 'status-review'
+  待确认: 'status-review',
+  已关闭: 'status-success'
 }
 
 const createRules = {
@@ -112,6 +123,12 @@ const columns: BaseTableColumn[] = [
     width: 120
   },
   {
+    label: '处理部门',
+    prop: 'handlerDeptName',
+    width: 130,
+    slot: 'handlerDept'
+  },
+  {
     label: '状态',
     prop: 'status',
     width: 120,
@@ -144,7 +161,7 @@ const columns: BaseTableColumn[] = [
 function getStatusClass(value: unknown) {
   const status = value as WorkOrderStatus
 
-  return statusClassMap[status]
+  return statusClassMap[status] ?? 'status-pending'
 }
 
 function getSourceClass(value: unknown) {
@@ -158,7 +175,8 @@ async function handleSearch() {
 
   requestQuery.value = {
     type: filterForm.type || undefined,
-    status: filterForm.status || undefined
+    status: filterForm.status || undefined,
+    handlerDeptName: filterForm.handlerDeptName || undefined
   }
   workOrderCurrentPage.value = 1
   await refresh()
@@ -171,9 +189,11 @@ async function resetSearch() {
 
   filterForm.type = ''
   filterForm.status = ''
+  filterForm.handlerDeptName = ''
   requestQuery.value = {
     type: undefined,
-    status: undefined
+    status: undefined,
+    handlerDeptName: undefined
   }
   workOrderCurrentPage.value = 1
   await refresh()
@@ -279,6 +299,22 @@ async function handleCreateSubmit() {
           </el-select>
         </el-form-item>
 
+        <el-form-item label="处理部门">
+          <el-select
+            v-model="filterForm.handlerDeptName"
+            clearable
+            placeholder="全部部门"
+            class="filter-control"
+          >
+            <el-option
+              v-for="item in workOrderHandlerDepartmentOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+
         <el-form-item>
           <el-button v-if="canSearchWorkOrders" :icon="Search" type="primary" @click="handleSearch">
             查询
@@ -321,6 +357,12 @@ async function handleCreateSubmit() {
       >
         <template #status="{ value }">
           <el-tag class="status-tag" :class="getStatusClass(value)" effect="plain">
+            {{ value }}
+          </el-tag>
+        </template>
+
+        <template #handlerDept="{ value }">
+          <el-tag class="status-tag permission-button-tag" effect="plain">
             {{ value }}
           </el-tag>
         </template>
@@ -382,6 +424,15 @@ async function handleCreateSubmit() {
           </el-select>
         </el-form-item>
 
+        <el-alert
+          v-if="createHandlerDeptName"
+          class="handler-dept-alert"
+          :title="`该类型会自动流向：${createHandlerDeptName}`"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+
         <el-form-item label="提交人" prop="submitter">
           <el-input
             v-model="createForm.submitter"
@@ -418,5 +469,9 @@ async function handleCreateSubmit() {
 
 .form-control {
   width: 100%;
+}
+
+.handler-dept-alert {
+  margin-bottom: 18px;
 }
 </style>

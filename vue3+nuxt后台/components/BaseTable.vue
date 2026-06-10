@@ -198,13 +198,13 @@ function handleSizeChange(value: number) {
 }
 
 .base-table :deep(.el-table__row td) {
-  height: 48px;
+  height: 44px;
   color: var(--admin-text);
   border-bottom-color: #eef2f7;
 }
 
 .base-table :deep(.el-table__cell) {
-  padding: 10px 0;
+  padding: 7px 0;
 }
 
 .base-table :deep(.el-table__body tr:hover > td.el-table__cell) {
@@ -221,8 +221,9 @@ function handleSizeChange(value: number) {
 
 .base-table-pagination {
   display: flex;
+  flex: 0 0 auto;
   justify-content: flex-end;
-  padding: 14px 16px;
+  padding: 10px 16px;
   background: #ffffff;
   border-top: 1px solid var(--admin-border);
 }

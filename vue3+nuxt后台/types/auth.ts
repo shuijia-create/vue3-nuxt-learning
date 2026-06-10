@@ -1,3 +1,5 @@
+import type { WorkOrderHandlerDepartment } from '~/types/work-order'
+
 export type LoginForm = {
   username: string
   password: string
@@ -13,6 +15,8 @@ export type AuthUser = {
   username: string
   nickname: string
   roles: string[]
+  departmentName?: WorkOrderHandlerDepartment
+  isDepartmentManager: boolean
 }
 
 export type AuthRouteItem = {

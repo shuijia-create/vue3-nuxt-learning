@@ -1,9 +1,10 @@
 import type { User } from '~/generated/prisma/client'
 import bcrypt from 'bcryptjs'
 import { prisma } from '~/server/utils/prisma'
+import type { WorkOrderHandlerDepartment } from '~/types/work-order'
 
-type DbUserForAuth = Pick<User, 'id' | 'username' | 'nickname' | 'role'>
-type DbUserForList = Pick<User, 'id' | 'username' | 'nickname' | 'role' | 'createdAt'>
+type DbUserForAuth = Pick<User, 'id' | 'username' | 'nickname' | 'role' | 'departmentName' | 'isDepartmentManager'>
+type DbUserForList = Pick<User, 'id' | 'username' | 'nickname' | 'role' | 'departmentName' | 'isDepartmentManager' | 'createdAt'>
 
 const bcryptSaltRounds = 10
 
@@ -14,6 +15,8 @@ export type AuthUser = {
   username: string
   nickname: string
   roles: string[]
+  departmentName?: WorkOrderHandlerDepartment
+  isDepartmentManager: boolean
 }
 
 export type UserListItem = AuthUser & {
@@ -21,19 +24,25 @@ export type UserListItem = AuthUser & {
   createdAt: string
 }
 
+export type AssignableUser = Pick<AuthUser, 'id' | 'username' | 'nickname' | 'departmentName'>
+
 type CreateUserInput = {
   username: string
   // 这里是 HTTPS 请求里的原始密码，只在本次请求内存里用于生成 bcrypt 哈希。
   password: string
   nickname: string
   role: string
+  departmentName: WorkOrderHandlerDepartment
+  isDepartmentManager: boolean
 }
 
 const authUserSelect = {
   id: true,
   username: true,
   nickname: true,
-  role: true
+  role: true,
+  departmentName: true,
+  isDepartmentManager: true
 } as const
 
 const credentialUserSelect = {
@@ -53,7 +62,9 @@ function toAuthUser(user: DbUserForAuth): AuthUser {
     id: user.id,
     username: user.username,
     nickname: user.nickname,
-    roles: [user.role]
+    roles: [user.role],
+    departmentName: (user.departmentName as WorkOrderHandlerDepartment | null) ?? undefined,
+    isDepartmentManager: user.isDepartmentManager
   }
 }
 
@@ -125,7 +136,9 @@ export async function createUserAccount(input: CreateUserInput) {
       username: input.username,
       passwordHash,
       nickname: input.nickname,
-      role: input.role
+      role: input.role,
+      departmentName: input.departmentName,
+      isDepartmentManager: input.isDepartmentManager
     },
     select: userListSelect
   })
@@ -145,4 +158,70 @@ export async function updateUserRole(id: number, role: string) {
   })
 
   return toUserListItem(user)
+}
+
+export async function updateUserWorkScope(
+  id: number,
+  departmentName: WorkOrderHandlerDepartment,
+  isDepartmentManager: boolean
+) {
+  const user = await prisma.user.update({
+    where: {
+      id
+    },
+    data: {
+      departmentName,
+      isDepartmentManager
+    },
+    select: userListSelect
+  })
+
+  return toUserListItem(user)
+}
+
+export async function findUserById(id: number) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id
+    },
+    select: authUserSelect
+  })
+
+  return user ? toAuthUser(user) : null
+}
+
+export async function listAssignableUsers(departmentName?: WorkOrderHandlerDepartment) {
+  const users = await prisma.user.findMany({
+    where: departmentName
+      ? {
+          departmentName
+        }
+      : undefined,
+    select: authUserSelect,
+    orderBy: {
+      id: 'asc'
+    }
+  })
+
+  return users.map(user => ({
+    id: user.id,
+    username: user.username,
+    nickname: user.nickname,
+    departmentName: (user.departmentName as WorkOrderHandlerDepartment | null) ?? undefined
+  }))
+}
+
+export async function listDepartmentManagers(departmentName: WorkOrderHandlerDepartment) {
+  const users = await prisma.user.findMany({
+    where: {
+      departmentName,
+      isDepartmentManager: true
+    },
+    select: authUserSelect,
+    orderBy: {
+      id: 'asc'
+    }
+  })
+
+  return users.map(toAuthUser)
 }

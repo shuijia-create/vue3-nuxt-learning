@@ -2,6 +2,8 @@ import type {
   WorkOrder,
   WorkOrderAiSuggestion,
   WorkOrderDraft,
+  WorkOrderFlowAction,
+  WorkOrderHandlerDepartment,
   WorkOrderPriority,
   WorkOrderSource,
   WorkOrderStatus,
@@ -13,6 +15,7 @@ import { fetchApiData, getApiFetch, type ApiFetch } from '~/utils/api/response'
 export type WorkOrderListParams = {
   type?: WorkOrderType
   status?: WorkOrderStatus
+  handlerDeptName?: WorkOrderHandlerDepartment
 }
 
 // 新建工单的前端入参。手动创建和 AI 草稿保存共用这一套结构。
@@ -26,10 +29,14 @@ export type CreateWorkOrderPayload = {
   aiSuggestion?: WorkOrderAiSuggestion
 }
 
-// 状态流转只允许传目标状态，真正的“能不能流转”由后端 service 判断。
+// 工单流程按动作提交，后端 service 再根据当前状态决定能不能执行。
 export type ChangeWorkOrderStatusPayload = {
   id: string
-  status: WorkOrderStatus
+  action: WorkOrderFlowAction
+  assigneeUserId?: number
+  assigneeName?: string
+  handledResult?: string
+  confirmResult?: string
 }
 
 // 列表接口返回值。保持一个 list 字段，页面拿到后可以直接交给表格。
@@ -73,7 +80,7 @@ export function createWorkOrderApi(payload: CreateWorkOrderPayload) {
   })
 }
 
-// 发起工单状态流转。页面传“目标状态”，后端负责校验当前状态是否允许到达目标状态。
+// 发起工单流程动作。页面表达业务动作，后端负责校验状态机和保存处理记录。
 export function changeWorkOrderStatusApi(payload: ChangeWorkOrderStatusPayload) {
   return fetchApiData<WorkOrderMutationResponse>('/api/work-orders/status', {
     method: 'POST',

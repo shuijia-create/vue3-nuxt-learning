@@ -19,18 +19,20 @@ const { data } = await useAsyncData('dashboard-work-orders', () => {
 
 const workOrders = computed(() => data.value?.list ?? [])
 const totalCount = computed(() => workOrders.value.length)
-const pendingCount = computed(() => workOrders.value.filter((item) => item.status === '待处理').length)
+const pendingCount = computed(() => workOrders.value.filter((item) => item.status === '待受理').length)
 const processingCount = computed(() => workOrders.value.filter((item) => item.status === '处理中').length)
 const reviewCount = computed(() => workOrders.value.filter((item) => item.status === '待确认').length)
+const closedCount = computed(() => workOrders.value.filter((item) => item.status === '已关闭').length)
 const aiDraftCount = computed(() => workOrders.value.filter((item) => item.source === 'AI 草稿').length)
 const recentWorkOrders = computed<BaseTableRow[]>(() => {
   return workOrders.value.slice(0, 6).map((item) => ({ ...item }))
 })
 
 const statusClassMap: Record<WorkOrderStatus, string> = {
-  待处理: 'status-pending',
+  待受理: 'status-pending',
   处理中: 'status-processing',
-  待确认: 'status-review'
+  待确认: 'status-review',
+  已关闭: 'status-success'
 }
 
 const metricCards = computed(() => [
@@ -41,9 +43,9 @@ const metricCards = computed(() => [
     color: '#2563eb'
   },
   {
-    label: '待处理',
+    label: '待受理',
     value: pendingCount.value,
-    hint: '需要分派或处理',
+    hint: '等待领导受理',
     color: '#d97706'
   },
   {
@@ -62,9 +64,9 @@ const metricCards = computed(() => [
 
 const todoCards = computed(() => [
   {
-    label: '待处理工单',
+    label: '待受理工单',
     value: pendingCount.value,
-    desc: '优先完成分派和责任人确认',
+    desc: '优先完成受理和处理人指派',
     className: 'status-pending'
   },
   {
@@ -72,6 +74,12 @@ const todoCards = computed(() => [
     value: reviewCount.value,
     desc: '核对现场反馈后关闭流程',
     className: 'status-review'
+  },
+  {
+    label: '已关闭工单',
+    value: closedCount.value,
+    desc: '处理结果已经确认归档',
+    className: 'status-success'
   },
   {
     label: 'AI 草稿来源',
@@ -100,6 +108,11 @@ const columns: BaseTableColumn[] = [
     width: 120
   },
   {
+    label: '处理部门',
+    prop: 'handlerDeptName',
+    width: 130
+  },
+  {
     label: '状态',
     prop: 'status',
     width: 120,
@@ -121,7 +134,7 @@ const columns: BaseTableColumn[] = [
 ]
 
 function getStatusClass(value: unknown) {
-  return statusClassMap[value as WorkOrderStatus]
+  return statusClassMap[value as WorkOrderStatus] ?? 'status-pending'
 }
 
 function getSourceClass(value: unknown) {

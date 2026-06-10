@@ -16,7 +16,7 @@ type AiProvider = 'qwen' | 'mock'
 // 这里明确规定草稿必须包含哪些字段，以及每个字段允许哪些值。
 const workOrderDraftSchema = z.object({
   title: z.string().min(1),
-  type: z.enum(['设备故障', 'IT 问题', '质量异常']),
+  type: z.enum(['IT 问题', '设备维修', '质量异常', '行政后勤', '权限申请', '安全隐患']),
   priority: z.enum(['低', '中', '高']),
   impact: z.string().min(1),
   suggestion: z.string().min(1),
@@ -46,7 +46,7 @@ function parseDraftText(text: string): WorkOrderDraft {
 function createMockDraft(description: string): WorkOrderDraft {
   return {
     title: description.slice(0, 24),
-    type: '设备故障',
+    type: '设备维修',
     priority: '高',
     impact: '现场可能影响生产节拍，需要优先确认风险和临时处置情况。',
     suggestion: '建议先确认设备编号、报警代码、当前参数和现场临时处理记录，再分派给设备人员处理。',
@@ -76,7 +76,7 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
         '你是制造企业内部工单助手。',
         '你必须只返回一个 JSON 对象，不要返回 Markdown，不要返回解释文字，不要返回“以下是”。',
         'JSON 字段只能包含 title、type、priority、impact、suggestion、missingInfo。',
-        'type 只能是“设备故障”、“IT 问题”、“质量异常”之一。',
+        'type 只能是“IT 问题”、“设备维修”、“质量异常”、“行政后勤”、“权限申请”、“安全隐患”之一。',
         'priority 只能是“低”、“中”、“高”之一。'
       ].join('\n'),
       prompt: [
@@ -85,7 +85,7 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
         `员工描述：${description}`,
         '',
         '返回格式示例：',
-        '{"title":"2号线设备温度偏高","type":"设备故障","priority":"高","impact":"可能影响当前生产节拍","suggestion":"建议检查设备报警代码、温控传感器和冷却系统","missingInfo":["设备编号","报警代码","当前温度数值"]}'
+        '{"title":"2号线设备温度偏高","type":"设备维修","priority":"高","impact":"可能影响当前生产节拍","suggestion":"建议检查设备报警代码、温控传感器和冷却系统","missingInfo":["设备编号","报警代码","当前温度数值"]}'
       ].join('\n')
     })
 
