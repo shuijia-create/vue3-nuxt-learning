@@ -3,6 +3,7 @@ import { generateText } from 'ai'
 import { z } from 'zod'
 import type { AuthUser } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 import type { WorkOrderDraft } from '~/types/work-order'
 
 type GenerateDraftBody = {
@@ -94,10 +95,7 @@ async function generateDraftWithQwen(description: string, apiKey: string, baseUR
     // 服务端记录原始错误，方便排查 Key、模型名、网络或 JSON 格式问题。
     console.error('[AI_WORK_ORDER_DRAFT_ERROR]', error)
 
-    throw createError({
-      statusCode: 502,
-      statusMessage: '千问接口调用失败，请检查 API Key、模型名称和网络连接'
-    })
+    throwApiError(502, '千问接口调用失败，请检查 API Key、模型名称和网络连接')
   }
 }
 
@@ -111,10 +109,7 @@ export default defineEventHandler(async (event) => {
 
   // 空描述没有业务意义，提前返回 400，避免浪费 AI 调用成本。
   if (!description) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '请输入问题描述'
-    })
+    throwApiError(400, '请输入问题描述')
   }
 
   // AI 配置来自 nuxt.config.ts 的 runtimeConfig，真实密钥只在服务端可见。
@@ -129,8 +124,8 @@ export default defineEventHandler(async (event) => {
   const provider: AiProvider = apiKey ? 'qwen' : 'mock'
 
   // provider 返回给页面用于展示“千问生成”还是“本地 mock 生成”。
-  return {
+  return apiSuccess({
     draft,
     provider
-  }
+  })
 })

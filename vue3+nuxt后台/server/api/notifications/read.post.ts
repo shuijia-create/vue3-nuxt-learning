@@ -1,4 +1,5 @@
 import { markNotificationRead } from '~/server/services/notifications'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 import { throwServiceError } from '~/server/utils/service-error'
 
 type CurrentUser = {
@@ -17,20 +18,14 @@ export default defineEventHandler(async (event) => {
   const recipientUserId = currentUser?.id
 
   if (!recipientUserId) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: '请先登录'
-    })
+    throwApiError(401, '请先登录')
   }
 
   // POST 请求的 body 里只需要传通知 id。
   const body = await readBody<ReadNotificationBody>(event)
 
   if (!body.id) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '通知 id 不能为空'
-    })
+    throwApiError(400, '通知 id 不能为空')
   }
 
   // service 层会同时校验通知 id 和接收人 id。
@@ -44,15 +39,8 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!notification) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: '通知不存在'
-    })
+    throwApiError(404, '通知不存在')
   }
 
-  return {
-    code: 200,
-    message: '通知已标记为已读',
-    data: notification
-  }
+  return apiSuccess(notification, '通知已标记为已读')
 })

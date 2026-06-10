@@ -60,7 +60,7 @@ server/services/auth.ts
   v
 server/api/login.post.ts
   setCookie("nuxt-admin-token", token, { httpOnly: true })
-  return { token }
+  return { code: 200, message, data: { token } }
   |
   v
 composables/use-auth.ts
@@ -120,6 +120,7 @@ pages/login.vue
 
 - `loginApi(form)`：把页面表单转换成接口请求体。
 - 最终提交的是 `{ username, password }`。
+- 后端统一返回 `{ code, message, data }`，API client 会解包 `data`，所以 `loginApi(form)` 对外仍然返回 `{ token }`。
 - `fetchMeApi()`：请求 `/api/me`，登录后可带 `Authorization: Bearer <token>`；SSR 刷新时通过 `useRequestFetch()` 转发 cookie。
 - `logoutApi()`：请求 `/api/logout`。
 - `isUnauthorizedError()`：统一判断 401，给 middleware 和 composable 使用。
@@ -139,7 +140,7 @@ server/services/users.ts
   |
   | bcrypt.compare(password, user.passwordHash)
   v
-返回 token
+返回 { code: 200, message, data: { token } }
 ```
 
 数据库仍然只保存 `password_hash`，不能保存明文密码。

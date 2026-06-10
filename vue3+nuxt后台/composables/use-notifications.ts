@@ -27,9 +27,9 @@ export function useNotifications() {
 
     const result = await markNotificationReadApi(id)
 
-    notificationsStore.updateNotification(result.data)
+    notificationsStore.updateNotification(result)
 
-    return result.data
+    return result
   }
 
   return {

@@ -1,6 +1,7 @@
 import type { AuthUser } from '~/server/services/users'
 import { requirePermissionCode, updateRolePermissions } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 
 type UpdateRolePermissionsBody = {
   role?: string
@@ -14,22 +15,16 @@ export default defineEventHandler(async (event) => {
   const role = body.role ?? ''
 
   if (!(await roleExists(role))) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '角色不存在'
-    })
+    throwApiError(400, '角色不存在')
   }
 
   if (role === 'super_admin') {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '超级管理员默认拥有全部权限，不需要手动修改'
-    })
+    throwApiError(400, '超级管理员默认拥有全部权限，不需要手动修改')
   }
 
   const permissionIds = Array.isArray(body.permissionIds)
     ? body.permissionIds.filter(id => Number.isInteger(id))
     : []
 
-  return updateRolePermissions(role, permissionIds)
+  return apiSuccess(await updateRolePermissions(role, permissionIds), '角色权限已保存')
 })

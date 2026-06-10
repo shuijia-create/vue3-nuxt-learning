@@ -2,6 +2,7 @@
 import { authCookieName, getAuthSessionUsername, publicApiPaths } from '~/server/services/auth'
 // 引入用户 service，用 Redis session 里的 username 重新查询数据库用户。
 import { findAuthUserByUsername } from '~/server/services/users'
+import { throwApiError } from '~/server/utils/api-response'
 
 function getBearerToken(event: Parameters<typeof getHeader>[0]) {
   const authorization = getHeader(event, 'authorization')
@@ -47,12 +48,7 @@ export default defineEventHandler(async (event) => {
     })
 
     // 返回 401，让前端知道当前请求没有登录态。
-    throw createError({
-      // 401 表示未认证，不是权限不足。
-      statusCode: 401,
-      // 这里给前端或调试信息使用。
-      message: '请先登录'
-    })
+    throwApiError(401, '请先登录')
   }
 
   // token 有效后，再按 username 查询 MySQL users 表，保证用户仍然真实存在。
@@ -67,12 +63,7 @@ export default defineEventHandler(async (event) => {
     })
 
     // 返回 401，因为这个登录态已经不能解析成有效用户。
-    throw createError({
-      // 仍然是未认证状态。
-      statusCode: 401,
-      // 明确告诉学习者：token 找到了，但数据库用户不存在。
-      message: '登录用户不存在'
-    })
+    throwApiError(401, '登录用户不存在')
   }
 
   // 把当前用户挂到 event.context，后续 server/api 可以直接读取 currentUser。

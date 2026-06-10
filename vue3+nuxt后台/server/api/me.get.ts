@@ -1,4 +1,5 @@
 import { getAuthPermissionSnapshotForUser } from '~/server/services/permissions'
+import { apiSuccess } from '~/server/utils/api-response'
 
 export default defineEventHandler(async (event) => {
   // currentUser 是 server/middleware/auth.ts 鉴权成功后写进来的。
@@ -6,8 +7,8 @@ export default defineEventHandler(async (event) => {
   const user = event.context.currentUser
   const permissionSnapshot = await getAuthPermissionSnapshotForUser(user)
 
-  return {
+  return apiSuccess({
     user,
     ...permissionSnapshot
-  }
+  })
 })

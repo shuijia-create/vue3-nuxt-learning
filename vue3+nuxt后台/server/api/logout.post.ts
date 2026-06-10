@@ -1,5 +1,7 @@
 import { authCookieName, deleteAuthSession } from '~/server/services/auth'
 
+import { apiSuccess } from '~/server/utils/api-response'
+
 export default defineEventHandler(async (event) => {
   const token = getCookie(event, authCookieName)
 
@@ -9,7 +11,5 @@ export default defineEventHandler(async (event) => {
     path: '/'
   })
 
-  return {
-    ok: true
-  }
+  return apiSuccess({ ok: true }, '退出登录成功')
 })

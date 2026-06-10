@@ -18,7 +18,7 @@ const auth = useAuthStore()
 const { data, pending, error, refresh } = await useAsyncData(`work-order-${id}`, () => {
   return workOrderActions.fetchWorkOrderDetail(id)
 })
-const workOrder = computed(() => data.value?.data)
+const workOrder = computed(() => data.value)
 const processRecords = computed(() => workOrder.value?.processRecords ?? [])
 const hasAiSuggestion = computed(() => {
   return workOrder.value?.source === 'AI 草稿' && !!workOrder.value.aiSuggestion

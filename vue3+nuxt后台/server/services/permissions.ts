@@ -1,5 +1,6 @@
 import { prisma } from '~/server/utils/prisma'
 import { ensureDefaultRoles, listEnabledRoleCodes, roleExists } from '~/server/services/roles'
+import { throwApiError } from '~/server/utils/api-response'
 import type { AuthUser } from '~/server/services/users'
 import type { PermissionTreeItem, PermissionType } from '~/types/permission'
 import type { AuthButtonPermission, AuthRouteItem } from '~/types/auth'
@@ -383,10 +384,7 @@ export async function requireAnyPermissionCode(user: AuthUser | undefined, codes
     return
   }
 
-  throw createError({
-    statusCode: 403,
-    statusMessage: '无权执行当前操作'
-  })
+  throwApiError(403, '无权执行当前操作')
 }
 
 export async function requirePermissionCode(user: AuthUser | undefined, code: string) {
@@ -475,10 +473,7 @@ export async function createPermission(input: CreatePermissionInput) {
   }
 
   if (!input.parentId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '按钮权限必须选择所属页面'
-    })
+    throwApiError(400, '按钮权限必须选择所属页面')
   }
 
   const parent = await prisma.permission.findFirst({
@@ -489,10 +484,7 @@ export async function createPermission(input: CreatePermissionInput) {
   })
 
   if (!parent) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '所属页面权限不存在'
-    })
+    throwApiError(400, '所属页面权限不存在')
   }
 
   await prisma.permission.create({
@@ -512,10 +504,7 @@ export async function updateRolePermissions(role: string, rawPermissionIds: numb
   await ensurePermissionSeedData()
 
   if (!(await roleExists(role))) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '角色不存在'
-    })
+    throwApiError(400, '角色不存在')
   }
 
   const permissions = await prisma.permission.findMany({

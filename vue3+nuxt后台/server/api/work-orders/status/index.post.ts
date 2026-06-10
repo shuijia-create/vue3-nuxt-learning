@@ -1,6 +1,7 @@
 import type { AuthUser } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { changeWorkOrderStatus } from '~/server/services/work-orders'
+import { apiSuccess } from '~/server/utils/api-response'
 import { throwServiceError } from '~/server/utils/service-error'
 import type { WorkOrderStatus } from '~/types/work-order'
 
@@ -19,11 +20,7 @@ export default defineEventHandler(async (event) => {
   await requirePermissionCode(currentUser, 'work_order_detail.change_status')
 
   try {
-    return {
-      code: 200,
-      message: '工单状态更新成功',
-      data: await changeWorkOrderStatus(body, currentUser)
-    }
+    return apiSuccess(await changeWorkOrderStatus(body, currentUser), '工单状态更新成功')
   } catch (error) {
     // service 会判断“待处理只能到处理中”等规则，失败时从这里返回错误。
     throwServiceError(error)

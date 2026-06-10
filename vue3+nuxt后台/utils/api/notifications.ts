@@ -1,29 +1,21 @@
 import type { Notification as SystemNotification } from '~/types/notification'
-
-type ApiFetch = <T>(request: string, options?: Parameters<typeof $fetch>[1]) => Promise<T>
+import { fetchApiData, getApiFetch, type ApiFetch } from '~/utils/api/response'
 
 export type NotificationsResponse = {
   list: SystemNotification[]
   unreadCount: number
 }
 
-export type ReadNotificationResponse = {
-  code: number
-  data: SystemNotification
-}
-
-function getApiFetch() {
-  return (import.meta.server ? useRequestFetch() : $fetch) as ApiFetch
-}
+export type ReadNotificationResponse = SystemNotification
 
 export function listNotificationsApi(fetcher?: ApiFetch) {
   const requestFetch = fetcher ?? getApiFetch()
 
-  return requestFetch<NotificationsResponse>('/api/notifications')
+  return fetchApiData<NotificationsResponse>('/api/notifications', undefined, requestFetch)
 }
 
 export function markNotificationReadApi(id: string) {
-  return $fetch<ReadNotificationResponse>('/api/notifications/read', {
+  return fetchApiData<ReadNotificationResponse>('/api/notifications/read', {
     method: 'POST',
     body: {
       id

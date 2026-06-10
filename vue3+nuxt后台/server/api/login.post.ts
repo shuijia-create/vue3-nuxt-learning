@@ -1,5 +1,6 @@
 import { authCookieName, createAuthSession } from '~/server/services/auth'
 import { findUserByCredentials } from '~/server/services/users'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 
 type LoginBody = {
   username?: string
@@ -18,10 +19,7 @@ export default defineEventHandler(async (event) => {
     : null
 
   if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: '用户名或密码错误'
-    })
+    throwApiError(401, '用户名或密码错误')
   }
 
   // 3. 凭证正确，在 Redis 里创建一条 session 记录（token → username），返回随机 token
@@ -39,7 +37,5 @@ export default defineEventHandler(async (event) => {
   // 5. 登录接口只返回 token，不返回用户信息和权限。
   // 用户信息、菜单路由、按钮权限统一交给 GET /api/me 这个 getInfo 接口返回。
   // 为了保留 Nuxt SSR 学习链路，这里仍然写 httpOnly cookie，刷新页面时服务端才能通过 cookie 恢复登录态。
-  return {
-    token
-  }
+  return apiSuccess({ token }, '登录成功')
 })

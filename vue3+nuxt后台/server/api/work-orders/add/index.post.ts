@@ -1,6 +1,7 @@
 import type { AuthUser } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { createWorkOrder } from '~/server/services/work-orders'
+import { apiSuccess } from '~/server/utils/api-response'
 import { throwServiceError } from '~/server/utils/service-error'
 import type {
   WorkOrderAiSuggestion,
@@ -33,11 +34,7 @@ export default defineEventHandler(async (event) => {
   await requirePermissionCode(currentUser, requiredButtonCode)
 
   try {
-    return {
-      message: '工单创建成功',
-      code: 200,
-      data: await createWorkOrder(body, currentUser)
-    }
+    return apiSuccess(await createWorkOrder(body, currentUser), '工单创建成功')
   } catch (error) {
     // 例如“未登录”“工单类型错误”“请填写完整信息”都由这里转成 HTTP 错误。
     throwServiceError(error)

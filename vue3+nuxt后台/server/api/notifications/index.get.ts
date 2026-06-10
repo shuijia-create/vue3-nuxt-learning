@@ -1,4 +1,5 @@
 import { getUserNotifications } from '~/server/services/notifications'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 
 type CurrentUser = {
   id?: number
@@ -13,20 +14,17 @@ export default defineEventHandler(async (event) => {
   const recipientUserId = currentUser?.id
 
   if (!recipientUserId) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: '请先登录'
-    })
+    throwApiError(401, '请先登录')
   }
 
   // 真正的数据库查询放在 service，API 层不直接操作 Prisma。
   const list = await getUserNotifications(recipientUserId)
 
-  return {
+  return apiSuccess({
     // 通知列表用于下拉面板或通知中心展示。
     list,
     // 未读数量用于后台 header 上的小红点。
     // 未读数量由服务端返回，前端不用重复计算接口数据是否已读。
     unreadCount: list.filter(notification => !notification.readAt).length
-  }
+  })
 })

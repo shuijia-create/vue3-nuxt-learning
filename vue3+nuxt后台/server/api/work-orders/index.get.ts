@@ -1,6 +1,7 @@
 import type { AuthUser } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { listWorkOrders } from '~/server/services/work-orders'
+import { apiSuccess } from '~/server/utils/api-response'
 import { throwServiceError } from '~/server/utils/service-error'
 
 // GET /api/work-orders
@@ -12,12 +13,12 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
 
   try {
-    return {
+    return apiSuccess({
       list: await listWorkOrders({
         type: query.type,
         status: query.status
       })
-    }
+    })
   } catch (error) {
     // service 抛出的业务错误在这里统一转换成 HTTP 错误响应。
     throwServiceError(error)

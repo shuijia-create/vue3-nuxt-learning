@@ -5,6 +5,8 @@ import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { RoleListItem } from '~/types/role'
 import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/use-auth'
+import { getApiErrorMessage } from '~/utils/api/errors'
+import { fetchApiData } from '~/utils/api/response'
 
 definePageMeta({
   layout: 'admin'
@@ -115,11 +117,11 @@ const {
   error,
   refresh
 } = await useAsyncData('accounts', () => {
-  return requestFetch<{ list: AccountUser[] }>('/api/users')
+  return fetchApiData<{ list: AccountUser[] }>('/api/users', undefined, requestFetch)
 })
 
 const { data: rolesData } = await useAsyncData('roles-for-accounts', () => {
-  return requestFetch<{ list: RoleListItem[] }>('/api/roles')
+  return fetchApiData<{ list: RoleListItem[] }>('/api/roles', undefined, requestFetch)
 })
 
 const accounts = computed(() => data.value?.list ?? [])
@@ -214,16 +216,6 @@ function handleAccountPageSizeChange(value: number) {
   accountCurrentPage.value = 1
 }
 
-function getErrorMessage(error: unknown) {
-  if (typeof error === 'object' && error !== null && 'data' in error) {
-    const data = (error as { data?: { statusMessage?: string, message?: string } }).data
-
-    return data?.statusMessage ?? data?.message ?? '操作失败'
-  }
-
-  return error instanceof Error ? error.message : '操作失败'
-}
-
 async function handleCreateAccount() {
   if (!canCreateAccount.value) {
     return
@@ -233,7 +225,7 @@ async function handleCreateAccount() {
 
   creating.value = true
   try {
-    await $fetch('/api/users', {
+    await fetchApiData('/api/users', {
       method: 'POST',
       body: {
         username: createForm.username,
@@ -247,7 +239,7 @@ async function handleCreateAccount() {
     closeCreateDialog()
     await refresh()
   } catch (error) {
-    ElMessage.error(getErrorMessage(error))
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
   } finally {
     creating.value = false
   }
@@ -264,7 +256,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
   updatingRoleUserId.value = accountId
 
   try {
-    await $fetch('/api/users/role', {
+    await fetchApiData('/api/users/role', {
       method: 'POST',
       body: {
         id: accountId,
@@ -275,7 +267,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
     ElMessage.success('账号角色已更新')
     await refresh()
   } catch (error) {
-    ElMessage.error(getErrorMessage(error))
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
     await refresh()
   } finally {
     updatingRoleUserId.value = null
@@ -345,7 +337,7 @@ async function handleUpdateAccountRole(row: BaseTableRow, roleValue: unknown) {
       <el-alert
         v-if="error"
         class="page-alert"
-        :title="getErrorMessage(error)"
+        :title="getApiErrorMessage(error, '账号列表加载失败')"
         type="error"
         :closable="false"
         show-icon

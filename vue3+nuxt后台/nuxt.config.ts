@@ -8,6 +8,9 @@ export default defineNuxtConfig({
     aiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     aiModel: 'qwen-plus'
   },
+  nitro: {
+    errorHandler: '~/server/error.ts'
+  },
   typescript: {
     strict: true,
     typeCheck: true

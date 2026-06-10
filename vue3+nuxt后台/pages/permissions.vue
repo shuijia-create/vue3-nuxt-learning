@@ -5,6 +5,8 @@ import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { PermissionTreeItem, PermissionType, PermissionsResponse } from '~/types/permission'
 import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/use-auth'
+import { getApiErrorMessage } from '~/utils/api/errors'
+import { fetchApiData } from '~/utils/api/response'
 
 definePageMeta({
   layout: 'admin'
@@ -113,7 +115,7 @@ const {
   error,
   refresh
 } = await useAsyncData('permissions', async () => {
-  return requestFetch<PermissionsResponse>('/api/permissions')
+  return fetchApiData<PermissionsResponse>('/api/permissions', undefined, requestFetch)
 })
 
 const permissionTree = computed(() => data.value?.list ?? [])
@@ -237,16 +239,6 @@ function handlePermissionPageSizeChange(value: number) {
   permissionCurrentPage.value = 1
 }
 
-function getErrorMessage(error: unknown) {
-  if (typeof error === 'object' && error !== null && 'data' in error) {
-    const data = (error as { data?: { statusMessage?: string, message?: string } }).data
-
-    return data?.statusMessage ?? data?.message ?? '操作失败'
-  }
-
-  return error instanceof Error ? error.message : '操作失败'
-}
-
 async function handleCreatePermission() {
   if (!canCreatePermission.value) {
     return
@@ -257,7 +249,7 @@ async function handleCreatePermission() {
   creating.value = true
 
   try {
-    data.value = await $fetch<PermissionsResponse>('/api/permissions', {
+    data.value = await fetchApiData<PermissionsResponse>('/api/permissions', {
       method: 'POST',
       body: {
         name: createForm.name,
@@ -272,7 +264,7 @@ async function handleCreatePermission() {
     closeCreateDialog()
     await refresh()
   } catch (error) {
-    ElMessage.error(getErrorMessage(error))
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
   } finally {
     creating.value = false
   }
@@ -337,7 +329,7 @@ async function handleCreatePermission() {
       <el-alert
         v-if="error"
         class="page-alert"
-        :title="getErrorMessage(error)"
+        :title="getApiErrorMessage(error, '权限列表加载失败')"
         type="error"
         :closable="false"
         show-icon

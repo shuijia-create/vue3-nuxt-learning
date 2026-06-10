@@ -164,6 +164,7 @@ npm run build
 
 ## 学习记录
 
+- 2026-06-10：统一后端 API 响应结构，成功返回 `{ code: 200, message, data }`，业务数据都放到 `data`；前端新增 API 解包 helper，页面继续消费解包后的业务数据，并统一读取错误消息。
 - 2026-06-10：把登录和账号创建改回标准 HTTPS 链路：前端直接提交 `password`，后端用 `bcrypt.compare` 校验登录、用 `bcrypt.hash` 保存新账号密码哈希，移除前端 RSA 公钥配置和密码加密工具。
 - 2026-06-10：曾尝试移除登录前置公钥接口并保留前端 RSA 加密，随后按标准企业后台实践改回 HTTPS 传输密码 + 后端 bcrypt 校验。
 - 2026-06-10：修正登录/getInfo 职责边界：`POST /api/login` 只返回 token 并创建 session，`GET /api/me` 作为唯一 getInfo 返回 `user`、`routes`、`buttons`；登录成功后带 token 调 getInfo，刷新页面时通过 cookie 调 getInfo，以获取最新权限。

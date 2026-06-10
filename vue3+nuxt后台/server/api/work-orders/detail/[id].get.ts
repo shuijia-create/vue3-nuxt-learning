@@ -1,6 +1,7 @@
 import type { AuthUser } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { getWorkOrderDetail } from '~/server/services/work-orders'
+import { apiSuccess } from '~/server/utils/api-response'
 import { throwServiceError } from '~/server/utils/service-error'
 
 // GET /api/work-orders/detail/:id
@@ -12,10 +13,7 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id') ?? ''
 
   try {
-    return {
-      data: await getWorkOrderDetail(id),
-      code: 200
-    }
+    return apiSuccess(await getWorkOrderDetail(id))
   } catch (error) {
     // 找不到工单时，service 会抛 404，这里负责转成 Nuxt 错误响应。
     throwServiceError(error)

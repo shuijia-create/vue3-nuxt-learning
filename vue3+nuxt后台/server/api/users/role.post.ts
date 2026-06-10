@@ -2,6 +2,7 @@ import type { AuthUser } from '~/server/services/users'
 import { updateUserRole } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 
 type UpdateUserRoleBody = {
   id?: number
@@ -16,20 +17,14 @@ export default defineEventHandler(async (event) => {
   const role = body.role ?? ''
 
   if (id === null) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '账号 ID 不正确'
-    })
+    throwApiError(400, '账号 ID 不正确')
   }
 
   if (!(await roleExists(role))) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '角色不存在'
-    })
+    throwApiError(400, '角色不存在')
   }
 
-  return {
+  return apiSuccess({
     user: await updateUserRole(id, role)
-  }
+  }, '账号角色已更新')
 })

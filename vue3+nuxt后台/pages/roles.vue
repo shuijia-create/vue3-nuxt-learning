@@ -6,6 +6,8 @@ import type { PermissionTreeItem, PermissionsResponse } from '~/types/permission
 import type { RoleListItem } from '~/types/role'
 import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/use-auth'
+import { getApiErrorMessage } from '~/utils/api/errors'
+import { fetchApiData } from '~/utils/api/response'
 
 definePageMeta({
   layout: 'admin'
@@ -134,7 +136,7 @@ const {
   error: rolesError,
   refresh: refreshRoles
 } = await useAsyncData('roles', async () => {
-  return requestFetch<{ list: RoleListItem[] }>('/api/roles')
+  return fetchApiData<{ list: RoleListItem[] }>('/api/roles', undefined, requestFetch)
 })
 
 const {
@@ -143,7 +145,7 @@ const {
   error: permissionsError,
   refresh: refreshPermissions
 } = await useAsyncData('role-permissions', async () => {
-  return requestFetch<PermissionsResponse>('/api/permissions')
+  return fetchApiData<PermissionsResponse>('/api/permissions', undefined, requestFetch)
 })
 
 const roles = computed(() => rolesData.value?.list ?? [])
@@ -345,16 +347,6 @@ function clearAllPermissions() {
   selectedPermissionIds.value = []
 }
 
-function getErrorMessage(error: unknown) {
-  if (typeof error === 'object' && error !== null && 'data' in error) {
-    const data = (error as { data?: { statusMessage?: string, message?: string } }).data
-
-    return data?.statusMessage ?? data?.message ?? '操作失败'
-  }
-
-  return error instanceof Error ? error.message : '操作失败'
-}
-
 async function handleCreateRole() {
   if (!canCreateRole.value) {
     return
@@ -365,7 +357,7 @@ async function handleCreateRole() {
   creating.value = true
 
   try {
-    await $fetch('/api/roles', {
+    await fetchApiData('/api/roles', {
       method: 'POST',
       body: createForm
     })
@@ -375,7 +367,7 @@ async function handleCreateRole() {
     await refreshRoles()
     await refreshPermissions()
   } catch (error) {
-    ElMessage.error(getErrorMessage(error))
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
   } finally {
     creating.value = false
   }
@@ -398,7 +390,7 @@ async function handleSaveRolePermissions() {
   saving.value = true
 
   try {
-    permissionsData.value = await $fetch<PermissionsResponse>('/api/roles/permissions', {
+    permissionsData.value = await fetchApiData<PermissionsResponse>('/api/roles/permissions', {
       method: 'POST',
       body: {
         role: selectedRoleCode.value,
@@ -410,7 +402,7 @@ async function handleSaveRolePermissions() {
     permissionDrawerVisible.value = false
     await refreshPermissions()
   } catch (error) {
-    ElMessage.error(getErrorMessage(error))
+    ElMessage.error(getApiErrorMessage(error, '操作失败'))
   } finally {
     saving.value = false
   }
@@ -462,7 +454,7 @@ async function handleSaveRolePermissions() {
       <el-alert
         v-if="rolesError"
         class="page-alert"
-        :title="getErrorMessage(rolesError)"
+        :title="getApiErrorMessage(rolesError, '角色列表加载失败')"
         type="error"
         :closable="false"
         show-icon
@@ -560,7 +552,7 @@ async function handleSaveRolePermissions() {
         <el-alert
           v-if="permissionsError"
           class="drawer-alert"
-          :title="getErrorMessage(permissionsError)"
+          :title="getApiErrorMessage(permissionsError, '权限列表加载失败')"
           type="error"
           :closable="false"
           show-icon

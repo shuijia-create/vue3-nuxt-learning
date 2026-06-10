@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BaseTableColumn, BaseTableRow } from '~/types/base-table'
 import type { OperationLog } from '~/types/operation-log'
+import { fetchApiData } from '~/utils/api/response'
 
 definePageMeta({
   layout: 'admin'
@@ -10,7 +11,10 @@ useHead({
   title: '系统日志 - Nuxt 后台学习项目'
 })
 
-const { data, pending, error } = await useFetch<{ list: OperationLog[] }>('/api/operation-logs')
+const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+const { data, pending, error } = await useAsyncData('operation-logs', () => {
+  return fetchApiData<{ list: OperationLog[] }>('/api/operation-logs', undefined, requestFetch)
+})
 
 const tableData = computed<BaseTableRow[]>(() => {
   return (data.value?.list ?? []).map((item) => ({ ...item }))

@@ -5,6 +5,7 @@ import {
 } from '~/server/services/users'
 import { requirePermissionCode } from '~/server/services/permissions'
 import { roleExists } from '~/server/services/roles'
+import { apiSuccess, throwApiError } from '~/server/utils/api-response'
 
 type CreateUserBody = {
   username?: string
@@ -25,48 +26,33 @@ export default defineEventHandler(async (event) => {
   const role = body.role ?? 'admin'
 
   if (!usernamePattern.test(username)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '用户名只能包含字母、数字、下划线，长度 3-30 位'
-    })
+    throwApiError(400, '用户名只能包含字母、数字、下划线，长度 3-30 位')
   }
 
   if (password.length < 6) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '密码至少 6 位'
-    })
+    throwApiError(400, '密码至少 6 位')
   }
 
   if (!nickname || nickname.length > 50) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '昵称不能为空，且不能超过 50 个字符'
-    })
+    throwApiError(400, '昵称不能为空，且不能超过 50 个字符')
   }
 
   if (!(await roleExists(role))) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: '账号角色不正确'
-    })
+    throwApiError(400, '账号角色不正确')
   }
 
   const existingUser = await findAuthUserByUsername(username)
 
   if (existingUser) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: '用户名已存在'
-    })
+    throwApiError(409, '用户名已存在')
   }
 
-  return {
+  return apiSuccess({
     user: await createUserAccount({
       username,
       password,
       nickname,
       role
     })
-  }
+  }, '账号创建成功')
 })

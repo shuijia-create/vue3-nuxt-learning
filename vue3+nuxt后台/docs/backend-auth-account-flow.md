@@ -239,9 +239,9 @@ server/services/auth.ts
 server/api/login.post.ts
   |
   | setCookie("nuxt-admin-token", token, { httpOnly: true })
-  | return { token }
+  | return { code: 200, message, data: { token } }
   v
-浏览器自动保存 httpOnly cookie，前端带 Bearer token 继续请求 GET /api/me 保存 user 和权限快照
+浏览器自动保存 httpOnly cookie，前端 API client 从 data 解出 token，再带 Bearer token 继续请求 GET /api/me 保存 user 和权限快照
 ```
 
 ## 后续接口怎么知道你是谁
