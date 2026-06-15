@@ -17,7 +17,7 @@ const formRef = ref()
 const loading = ref(false)
 const form = reactive({
   username: 'admin',
-  password: '123456'
+  password: 'Admin123456'
 })
 
 const rules = {
@@ -83,7 +83,7 @@ async function handleLogin() {
           <el-form-item label="密码" prop="password">
             <el-input
               v-model="form.password"
-              placeholder="123456"
+              placeholder="Admin123456"
               show-password
               type="password"
             />
@@ -102,7 +102,7 @@ async function handleLogin() {
         </el-form>
 
         <div class="login-tip">
-          演示账号：admin / 123456
+          演示账号：admin / Admin123456
         </div>
       </div>
     </section>
