@@ -31,6 +31,10 @@ const pool = mariadb.createPool({
   password: decodeURIComponent(parsedUrl.password),
   database,
   connectionLimit: 1,
+  connectTimeout: 30000,
+  acquireTimeout: 30000,
+  initializationTimeout: 30000,
+  socketTimeout: 60000,
   ...(shouldUseSsl
     ? {
         ssl: {

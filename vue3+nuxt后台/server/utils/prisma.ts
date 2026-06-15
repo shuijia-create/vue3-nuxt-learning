@@ -15,6 +15,10 @@ function createMariaDbConfig(databaseUrl: string) {
     user: decodeURIComponent(parsedUrl.username),
     password: decodeURIComponent(parsedUrl.password),
     database,
+    connectTimeout: 30000,
+    acquireTimeout: 30000,
+    initializationTimeout: 30000,
+    socketTimeout: 60000,
     ...(shouldUseSsl
       ? {
           ssl: {
