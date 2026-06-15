@@ -11,6 +11,14 @@ export default defineNuxtConfig({
   nitro: {
     errorHandler: '~/server/error.ts'
   },
+  vite: {
+    server: {
+      allowedHosts: process.env.NUXT_DEV_ALLOWED_HOSTS
+        ?.split(',')
+        .map(host => host.trim())
+        .filter(Boolean)
+    }
+  },
   typescript: {
     strict: true,
     typeCheck: true

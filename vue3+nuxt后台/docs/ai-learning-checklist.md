@@ -145,7 +145,7 @@ Nuxt 全栈后台 + AI 应用落地
 - [ ] 写项目亮点：Nuxt 全栈、AI 工单、登录鉴权、通知、移动端
 - [ ] 写演示账号
 - [ ] 写本地启动步骤
-- [ ] 写部署说明
+- [x] 写部署说明
 - [ ] 录制 2 分钟演示视频脚本
 - [ ] 准备面试讲解词
 
@@ -166,6 +166,9 @@ npm run build
 
 ## 学习记录
 
+- 2026-06-15：新增 Render Web Service 免费演示部署配置，包含 `render.yaml`、Render 构建/预部署/启动脚本和 `docs/deploy-render.md`，敏感的数据库、Redis、AI Key 和管理员密码均通过 Render 环境变量填写，不写入仓库。
+- 2026-06-15：新增临时演示链接支持，Nuxt 开发服务可通过 `NUXT_DEV_ALLOWED_HOSTS` 放行 Cloudflare Tunnel 临时域名；已用公网 `/login`、`/api/login`、`/api/me` 验证页面、登录、MySQL 和 Redis 链路，并通过 `npm run typecheck` 验证。
+- 2026-06-15：新增线上 Docker Compose 部署方案，包含 Nuxt 生产 Dockerfile、MySQL、Redis、Caddy 自动 HTTPS、Prisma 生产迁移、管理员初始化脚本和 `docs/deploy.md` 部署说明；通过 `node --check scripts/seed-admin.mjs`、`npm run typecheck` 和 `npm run build` 验证。
 - 2026-06-10：修正工单提交人来源，创建工单和 AI 草稿保存不再允许前端手填提交人，后端统一用当前登录用户写入“昵称（账号）”提交人快照，并新增 `submitter_dept_name` 保存提交部门快照；历史工单通过 `created_by` 关联 users 回填提交人和部门，列表、工作台和详情页同步展示提交部门；通过 `npx prisma validate`、`npx prisma migrate dev`、`npx prisma generate`、`npm run typecheck` 和 `npm run build` 验证。
 - 2026-06-10：修正角色管理列表创建时间显示，角色页不再直接展示后端 ISO 时间字符串，改为和账号管理一致先转成本地中文日期时间再渲染；通过 `npm run typecheck` 验证。
 - 2026-06-10：修正角色、部门和工单提交权限的边界：角色只负责权限模板和“是否部门负责人”，部门仍然作为账号的组织归属单独配置，避免按部门复制角色导致角色爆炸；创建角色时新增“允许提交工单”快捷配置，本质仍写入 `role_permissions` 的 `work_orders.create` 权限，负责人角色默认不授予提交入口；新增角色负责人字段 migration，并通过 `npx prisma validate`、`npx prisma migrate dev`、`npx prisma generate`、`npm run typecheck`、`npm run build` 验证。
