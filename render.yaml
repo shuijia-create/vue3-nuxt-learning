@@ -1,0 +1,37 @@
+services:
+  - type: web
+    runtime: node
+    name: nuxt-admin-learning
+    rootDir: vue3+nuxt后台
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run render:build
+    preDeployCommand: npm run render:predeploy
+    startCommand: npm run start
+    healthCheckPath: /login
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: NUXT_AI_API_KEY
+        sync: false
+      - key: NUXT_AI_BASE_URL
+        value: https://dashscope.aliyuncs.com/compatible-mode/v1
+      - key: NUXT_AI_MODEL
+        value: qwen-plus
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NICKNAME
+        value: 超级管理员
+      - key: ADMIN_ROLE
+        value: super_admin
+      - key: ADMIN_DEPARTMENT_NAME
+        value: IT部
