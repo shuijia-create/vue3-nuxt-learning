@@ -2,12 +2,10 @@ services:
   - type: web
     runtime: node
     name: nuxt-admin-learning
-    rootDir: vue3+nuxt后台
     plan: free
     region: singapore
-    buildCommand: npm ci && npm run render:build
-    preDeployCommand: npm run render:predeploy
-    startCommand: npm run start
+    buildCommand: cd vue3+nuxt后台 && npm ci && npm run render:build
+    startCommand: cd vue3+nuxt后台 && npm run render:predeploy && npm run start
     healthCheckPath: /login
     autoDeployTrigger: commit
     envVars:
