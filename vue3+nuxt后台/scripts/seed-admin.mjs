@@ -20,6 +20,9 @@ if (!password) {
 
 const parsedUrl = new URL(databaseUrl)
 const database = parsedUrl.pathname.replace(/^\//, '')
+const shouldUseSsl = parsedUrl.searchParams.has('sslaccept')
+  || parsedUrl.searchParams.get('ssl') === 'true'
+  || parsedUrl.hostname.includes('tidbcloud.com')
 
 const pool = mariadb.createPool({
   host: parsedUrl.hostname,
@@ -27,7 +30,14 @@ const pool = mariadb.createPool({
   user: decodeURIComponent(parsedUrl.username),
   password: decodeURIComponent(parsedUrl.password),
   database,
-  connectionLimit: 1
+  connectionLimit: 1,
+  ...(shouldUseSsl
+    ? {
+        ssl: {
+          rejectUnauthorized: true
+        }
+      }
+    : {})
 })
 
 let connection

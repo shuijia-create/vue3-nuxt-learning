@@ -1,5 +1,29 @@
+import { URL } from 'node:url'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import { PrismaClient } from '~/generated/prisma/client'
+
+function createMariaDbConfig(databaseUrl: string) {
+  const parsedUrl = new URL(databaseUrl)
+  const database = parsedUrl.pathname.replace(/^\//, '')
+  const shouldUseSsl = parsedUrl.searchParams.has('sslaccept')
+    || parsedUrl.searchParams.get('ssl') === 'true'
+    || parsedUrl.hostname.includes('tidbcloud.com')
+
+  return {
+    host: parsedUrl.hostname,
+    port: Number(parsedUrl.port || 3306),
+    user: decodeURIComponent(parsedUrl.username),
+    password: decodeURIComponent(parsedUrl.password),
+    database,
+    ...(shouldUseSsl
+      ? {
+          ssl: {
+            rejectUnauthorized: true
+          }
+        }
+      : {})
+  }
+}
 
 // 创建 PrismaClient，也就是 Nuxt 后端访问 MySQL 的客户端。
 // server/api 和 server/services 不直接写 SQL，而是通过这个客户端调用 users、work_orders 等表。
@@ -12,8 +36,8 @@ function createPrismaClient() {
   }
 
   // Nuxt 后端连接 MySQL 的入口。
-  // Prisma 7 需要 driver adapter；这里用 .env 的 DATABASE_URL 创建 MySQL/MariaDB 适配器。
-  const adapter = new PrismaMariaDb(databaseUrl)
+  // TiDB Cloud Serverless 强制要求 TLS；这里把 DATABASE_URL 转成 mariadb PoolConfig 后显式启用 SSL。
+  const adapter = new PrismaMariaDb(createMariaDbConfig(databaseUrl))
 
   return new PrismaClient({ adapter })
 }
