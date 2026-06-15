@@ -155,6 +155,27 @@ type PermissionWithRoles = {
   rolePermissions: Array<{ role: string }>
 }
 
+type AuthPermissionSnapshot = {
+  routes: AuthRouteItem[]
+  buttons: AuthButtonPermission[]
+}
+
+const globalForPermissions = globalThis as unknown as {
+  permissionSeedReady?: boolean
+  permissionSeedPromise?: Promise<void>
+  permissionSnapshotCache?: Map<string, AuthPermissionSnapshot>
+}
+
+function getPermissionSnapshotCache() {
+  globalForPermissions.permissionSnapshotCache ??= new Map<string, AuthPermissionSnapshot>()
+
+  return globalForPermissions.permissionSnapshotCache
+}
+
+function clearPermissionSnapshotCache() {
+  globalForPermissions.permissionSnapshotCache?.clear()
+}
+
 async function ensureDefaultPermissions() {
   for (const page of permissionSeeds) {
     const existingPagePermission = await prisma.permission.findUnique({
@@ -255,10 +276,24 @@ async function ensureDefaultRolePermissions() {
 }
 
 export async function ensurePermissionSeedData() {
-  // 学习项目没有单独写 seed 命令，所以在权限相关入口做幂等初始化。
-  // 默认权限只补缺失记录；后续菜单、页面访问和角色授权都重新查询数据库表。
-  await ensureDefaultPermissions()
-  await ensureDefaultRolePermissions()
+  if (globalForPermissions.permissionSeedReady) {
+    return
+  }
+
+  // 默认权限已经会在部署阶段通过 seed-admin.mjs 补齐。
+  // 这里保留运行时兜底，但同一个进程只执行一次，避免 /api/me 每次登录都跑几十次初始化 SQL。
+  globalForPermissions.permissionSeedPromise ??= (async () => {
+    await ensureDefaultPermissions()
+    await ensureDefaultRolePermissions()
+    globalForPermissions.permissionSeedReady = true
+  })()
+
+  try {
+    await globalForPermissions.permissionSeedPromise
+  } catch (error) {
+    globalForPermissions.permissionSeedPromise = undefined
+    throw error
+  }
 }
 
 function toPermissionTreeItem(permission: {
@@ -421,6 +456,13 @@ export async function getAuthPermissionSnapshotForUser(user: AuthUser | undefine
   }
 
   const userRoles = user.roles ?? []
+  const cacheKey = [...userRoles].sort().join('|')
+  const cachedSnapshot = getPermissionSnapshotCache().get(cacheKey)
+
+  if (cachedSnapshot) {
+    return cachedSnapshot
+  }
+
   const ownsAllPermissions = userRoles.includes('super_admin')
   const permissions = await prisma.permission.findMany({
     include: {
@@ -449,10 +491,14 @@ export async function getAuthPermissionSnapshotForUser(user: AuthUser | undefine
     })
     .map(toAuthButtonPermission)
 
-  return {
+  const snapshot = {
     routes,
     buttons
   }
+
+  getPermissionSnapshotCache().set(cacheKey, snapshot)
+
+  return snapshot
 }
 
 export async function createPermission(input: CreatePermissionInput) {
@@ -468,6 +514,8 @@ export async function createPermission(input: CreatePermissionInput) {
         sort: 100
       }
     })
+
+    clearPermissionSnapshotCache()
 
     return listPermissionTree()
   }
@@ -496,6 +544,8 @@ export async function createPermission(input: CreatePermissionInput) {
       sort: 100
     }
   })
+
+  clearPermissionSnapshotCache()
 
   return listPermissionTree()
 }
@@ -549,6 +599,7 @@ export async function updateRolePermissions(role: string, rawPermissionIds: numb
   // 超级管理员始终保留所有权限，避免误操作后无法进入权限管理。
   const allPermissionIds = permissions.map(permission => permission.id)
   await createMissingRolePermissions('super_admin', allPermissionIds)
+  clearPermissionSnapshotCache()
 
   return listPermissionTree()
 }
