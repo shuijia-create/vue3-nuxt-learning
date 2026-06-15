@@ -1,8 +1,85 @@
-import ElementPlus, { ID_INJECTION_KEY, ZINDEX_INJECTION_KEY } from 'element-plus'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import {
+  ElAlert,
+  ElAside,
+  ElBadge,
+  ElButton,
+  ElCard,
+  ElCheckbox,
+  ElCol,
+  ElContainer,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDialog,
+  ElDivider,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElHeader,
+  ElIcon,
+  ElInput,
+  ElMain,
+  ElMenu,
+  ElMenuItem,
+  ElOption,
+  ElPagination,
+  ElRadioButton,
+  ElRadioGroup,
+  ElRow,
+  ElScrollbar,
+  ElSelect,
+  ElSwitch,
+  ElTable,
+  ElTableColumn,
+  ElTag,
+  ElTimeline,
+  ElTimelineItem,
+  ID_INJECTION_KEY,
+  ZINDEX_INJECTION_KEY
+} from 'element-plus'
+
+const elementPlusComponents = [
+  ElAlert,
+  ElAside,
+  ElBadge,
+  ElButton,
+  ElCard,
+  ElCheckbox,
+  ElCol,
+  ElContainer,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDialog,
+  ElDivider,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElHeader,
+  ElIcon,
+  ElInput,
+  ElMain,
+  ElMenu,
+  ElMenuItem,
+  ElOption,
+  ElPagination,
+  ElRadioButton,
+  ElRadioGroup,
+  ElRow,
+  ElScrollbar,
+  ElSelect,
+  ElSwitch,
+  ElTable,
+  ElTableColumn,
+  ElTag,
+  ElTimeline,
+  ElTimelineItem
+]
 
 export default defineNuxtPlugin((nuxtApp) => {
-  nuxtApp.vueApp.use(ElementPlus)
+  for (const component of elementPlusComponents) {
+    nuxtApp.vueApp.use(component)
+  }
 
   // Element Plus 在 SSR 场景下会给组件生成唯一 id。
   // 这里手动提供起始值，可以避免服务端渲染和客户端激活时 id 不一致。
@@ -17,8 +94,5 @@ export default defineNuxtPlugin((nuxtApp) => {
     current: 0
   })
 
-  // 自动注册 Element Plus 图标，页面里可以直接使用 <Bell />、<User /> 这类图标组件。
-  for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-    nuxtApp.vueApp.component(key, component)
-  }
+  // 图标在页面里按需 import，不再全量注册 @element-plus/icons-vue。
 })
